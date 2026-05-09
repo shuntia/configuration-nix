@@ -8,9 +8,9 @@
     enable = true;
     configurationLimit = 20;
     consoleMode = "max";
-    mirroredBoots = [
-      { devices = [ "nodev" ]; path = "/boot.bak"; }
-    ];
+    extraInstallCommands = ''
+      ${pkgs.rsync}/bin/rsync -a --delete /boot/ /boot.bak/
+    '';
   };
   boot.loader.efi.canTouchEfiVariables = true;
 
