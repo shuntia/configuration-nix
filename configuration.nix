@@ -148,6 +148,9 @@
   fileSystems."/persist".neededForBoot = true;
   fileSystems."/home".neededForBoot    = true;
 
+  fileSystems."/boot".options     = [ "umask=0077" ];
+  fileSystems."/boot.bak".options = [ "umask=0077" ];
+
   environment.persistence."/persist" = {
     hideMounts = true;
     directories = [
