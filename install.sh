@@ -420,7 +420,7 @@ let
     (extension "ublock-origin"              "uBlock0@raymondhill.net")
     (extension "bitwarden-password-manager" "{446900e4-71c2-419f-a6a7-df9c091e268b}")
     (extension "sponsorblock"               "sponsorBlocker@ajay.app")
-    (extension "return-youtube-dislike"     "{7137197f-c4eb-4df6-8e26-01c9e18bf22d}")
+    (extension "return-youtube-dislike" "{7137197f-c4eb-4df6-8e26-01c9e18bf22d}")
   ];
 
 in
