@@ -31,13 +31,6 @@
     theme = "spinner";
   };
 
-  # ─── Filesystems ───────────────────────────────────────────────────────────
-  fileSystems."/" = {
-    device  = lib.mkForce "none";
-    fsType  = lib.mkForce "tmpfs";
-    options = lib.mkForce [ "defaults" "size=2G" "mode=755" ];
-  };
-
   # ─── Filesystem maintenance ─────────────────────────────────────────────────
   services.btrfs.autoScrub = { enable = true; interval = "monthly"; };
   services.fstrim.enable = true;
