@@ -41,9 +41,9 @@ swapon "${DISK_A}p2" 2>/dev/null && echo "  ${DISK_A}p2 activated" \
 swapon "${DISK_B}p2" 2>/dev/null && echo "  ${DISK_B}p2 activated" \
     || echo "  ${DISK_B}p2 skipped (already on or not swap)"
 
-# ─── Root tmpfs ───────────────────────────────────────────────────────────────
-info "Mounting tmpfs at ${MNT}..."
-mount -t tmpfs -o defaults,size=2G,mode=755 none "${MNT}"
+# ─── Root (@root subvolume) ───────────────────────────────────────────────────
+info "Mounting @root at ${MNT}..."
+mount -t btrfs -o "subvol=@root,${BTRFS_OPTS}" "${DISK_A}p3" "${MNT}"
 
 # ─── BTRFS subvolumes ─────────────────────────────────────────────────────────
 info "Scanning BTRFS devices..."
