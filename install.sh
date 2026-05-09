@@ -76,11 +76,7 @@ info "Generating hardware-configuration.nix..."
 nixos-generate-config --root "${MNT}"
 mkdir -p "${CFG_DIR}"
 cp "${NIXOS_DIR}/hardware-configuration.nix" "${CFG_DIR}/"
-# Strip fileSystems."/" — configuration.nix owns it with per-attr mkForce
-awk '/fileSystems\."\/"/{ skip=1 } skip && /\};/{ skip=0; next } !skip{ print }' \
-    "${CFG_DIR}/hardware-configuration.nix" > /tmp/hwconf.tmp \
-    && mv /tmp/hwconf.tmp "${CFG_DIR}/hardware-configuration.nix"
-echo "  generated and patched at ${CFG_DIR}/hardware-configuration.nix"
+echo "  generated at ${CFG_DIR}/hardware-configuration.nix"
 
 # ─── Password ─────────────────────────────────────────────────────────────────
 info "Set password for user 'shuntia'..."
@@ -275,15 +271,28 @@ cat > "${CFG_DIR}/configuration.nix" << 'NIXEOF'
   };
 
   # ─── Impermanence: wipe @home on every boot ──────────────────────────
-  boot.initrd.postDeviceCommands = lib.mkAfter ''
-    mkdir -p /btrfs_tmp
-    mount -o subvol=/ /dev/disk/by-label/nixos /btrfs_tmp
-    if [[ -e /btrfs_tmp/@home ]]; then
-      btrfs subvolume delete /btrfs_tmp/@home
-    fi
-    btrfs subvolume create /btrfs_tmp/@home
-    umount /btrfs_tmp
-  '';
+  boot.initrd.systemd.enable = true;
+
+  boot.initrd.systemd.services.wipe-home = {
+    description = "Wipe @home btrfs subvolume";
+    wantedBy    = [ "initrd.target" ];
+    before      = [ "sysroot.mount" ];
+    unitConfig.DefaultDependencies = "no";
+    serviceConfig.Type = "oneshot";
+    path   = [ pkgs.btrfs-progs pkgs.util-linux ];
+    script = ''
+      mkdir -p /btrfs_tmp
+      mount -o subvol=/ /dev/disk/by-label/nixos /btrfs_tmp
+      if [ -e /btrfs_tmp/@home ]; then
+        btrfs subvolume delete /btrfs_tmp/@home
+      fi
+      btrfs subvolume create /btrfs_tmp/@home
+      umount /btrfs_tmp
+    '';
+  };
+
+  fileSystems."/persist".neededForBoot = true;
+  fileSystems."/home".neededForBoot    = true;
 
   environment.persistence."/persist" = {
     hideMounts = true;
