@@ -117,13 +117,20 @@ cat > "${CFG_DIR}/flake.nix" << 'FLAKEEOF'
       url = "github:soymou/illogical-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    zen-browser = {
+      url = "github:youwen5/zen-browser-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, impermanence, illogical-flake, ... }: {
+  outputs = { self, nixpkgs, home-manager, impermanence, illogical-flake, zen-browser, ... }@inputs: {
     nixosConfigurations.shuntia-desktop = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+      specialArgs = { inherit inputs; };
       modules = [
         ./configuration.nix
+        ./zen.nix
         impermanence.nixosModules.impermanence
         home-manager.nixosModules.home-manager
         {
@@ -388,6 +395,67 @@ cat > "${CFG_DIR}/home.nix" << 'HOMEEOF'
 HOMEEOF
 echo "  written to ${CFG_DIR}/home.nix"
 
+# ─── zen.nix ──────────────────────────────────────────────────────────────────
+info "Writing zen.nix..."
+cat > "${CFG_DIR}/zen.nix" << 'ZENEOF'
+{ inputs, pkgs, lib, ... }:
+let
+  extension = shortId: guid: {
+    name = guid;
+    value = {
+      install_url = "https://addons.mozilla.org/en-US/firefox/downloads/latest/${shortId}/latest.xpi";
+      installation_mode = "normal_installed";
+    };
+  };
+
+  prefs = {
+    "extensions.autoDisableScopes"  = 0;
+    "extensions.pocket.enabled"     = false;
+    "browser.newtabpage.enabled"    = false;
+    "browser.startup.homepage"      = "about:blank";
+    "signon.rememberSignons"        = false;
+  };
+
+  extensions = [
+    (extension "ublock-origin"              "uBlock0@raymondhill.net")
+    (extension "bitwarden-password-manager" "{446900e4-71c2-419f-a6a7-df9c091e268b}")
+    (extension "sponsorblock"               "sponsorBlocker@ajay.app")
+    (extension "return-youtube-dislike"     "{7137197f-c4eb-4df6-8e26-01c9e18bf22d}")
+  ];
+
+in
+{
+  environment.systemPackages = [
+    (pkgs.wrapFirefox
+      inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.zen-browser-unwrapped
+      {
+        extraPrefs = lib.concatLines (
+          lib.mapAttrsToList (
+            name: value: ''lockPref(${lib.strings.toJSON name}, ${lib.strings.toJSON value});''
+          ) prefs
+        );
+
+        extraPolicies = {
+          DisableTelemetry = true;
+          ExtensionSettings = builtins.listToAttrs extensions;
+
+          SearchEngines = {
+            Default = "ddg";
+            Add = [
+              { Name = "nixpkgs packages"; URLTemplate = "https://search.nixos.org/packages?query={searchTerms}"; IconURL = "https://wiki.nixos.org/favicon.ico"; Alias = "@np"; }
+              { Name = "NixOS options";    URLTemplate = "https://search.nixos.org/options?query={searchTerms}";  IconURL = "https://wiki.nixos.org/favicon.ico"; Alias = "@no"; }
+              { Name = "NixOS Wiki";       URLTemplate = "https://wiki.nixos.org/w/index.php?search={searchTerms}"; IconURL = "https://wiki.nixos.org/favicon.ico"; Alias = "@nw"; }
+              { Name = "noogle";           URLTemplate = "https://noogle.dev/q?term={searchTerms}"; IconURL = "https://noogle.dev/favicon.ico"; Alias = "@ng"; }
+            ];
+          };
+        };
+      }
+    )
+  ];
+}
+ZENEOF
+echo "  written to ${CFG_DIR}/zen.nix"
+
 # ─── Summary & install ────────────────────────────────────────────────────────
 info "Mount summary:"
 findmnt --list --output TARGET,SOURCE,FSTYPE,OPTIONS | grep "^${MNT}" | sed 's/^/  /'
@@ -397,7 +465,7 @@ echo "Config files in ${CFG_DIR}:"
 ls -1 "${CFG_DIR}/" | sed 's/^/  /'
 echo
 info "Verifying config files..."
-for f in flake.nix configuration.nix home.nix hardware-configuration.nix; do
+for f in flake.nix configuration.nix home.nix zen.nix hardware-configuration.nix; do
     [[ -f "${CFG_DIR}/${f}" ]] || die "Missing ${CFG_DIR}/${f}"
     echo "  ${f} OK"
 done

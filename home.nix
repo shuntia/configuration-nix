@@ -29,9 +29,6 @@
     brightnessctl
     playerctl
 
-    # Browser
-    zen-browser
-
     # Media
     mpv
     imv
