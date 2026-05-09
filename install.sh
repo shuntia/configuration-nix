@@ -73,8 +73,10 @@ echo "  ${DISK_B}p1  →  ${MNT}/boot.bak"
 
 # ─── Hardware config ──────────────────────────────────────────────────────────
 info "Generating hardware-configuration.nix..."
+mkdir -p "${NIXOS_DIR}" "${CFG_DIR}"
 nixos-generate-config --root "${MNT}"
-mkdir -p "${CFG_DIR}"
+[[ -f "${NIXOS_DIR}/hardware-configuration.nix" ]] \
+    || die "nixos-generate-config did not produce hardware-configuration.nix"
 cp "${NIXOS_DIR}/hardware-configuration.nix" "${CFG_DIR}/"
 echo "  generated at ${CFG_DIR}/hardware-configuration.nix"
 
@@ -394,6 +396,12 @@ echo
 echo "Config files in ${CFG_DIR}:"
 ls -1 "${CFG_DIR}/" | sed 's/^/  /'
 echo
+info "Verifying config files..."
+for f in flake.nix configuration.nix home.nix hardware-configuration.nix; do
+    [[ -f "${CFG_DIR}/${f}" ]] || die "Missing ${CFG_DIR}/${f}"
+    echo "  ${f} OK"
+done
+
 info "Locking flake inputs (generates flake.lock before nix hashes the directory)..."
 nix flake lock "${CFG_DIR}"
 
