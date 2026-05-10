@@ -36,6 +36,25 @@
   services.fstrim.enable = true;
   services.smartd   = { enable = true; autodetect = true; };
 
+  # ─── Snapshots (snapper) ────────────────────────────────────────────────────
+  # Snapshots /persist (user data). Root rollback is handled by NixOS generations.
+  # First run after rebuild: sudo snapper -c persist create-config /persist
+  services.snapper = {
+    snapshotInterval = "hourly";
+    cleanupInterval  = "1d";
+    configs.persist = {
+      SUBVOLUME          = "/persist";
+      ALLOW_USERS        = [ "shuntia" ];
+      TIMELINE_CREATE    = true;
+      TIMELINE_CLEANUP   = true;
+      TIMELINE_LIMIT_HOURLY  = "10";
+      TIMELINE_LIMIT_DAILY   = "7";
+      TIMELINE_LIMIT_WEEKLY  = "4";
+      TIMELINE_LIMIT_MONTHLY = "3";
+      TIMELINE_LIMIT_YEARLY  = "0";
+    };
+  };
+
   # ─── Swap ───────────────────────────────────────────────────────────────────
   zramSwap = {
     enable = true;
@@ -72,6 +91,30 @@
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
 
+  # ─── Ollama ─────────────────────────────────────────────────────────────────
+  services.ollama = {
+    enable       = true;
+    acceleration = "cuda";
+  };
+
+  # ─── Docker ─────────────────────────────────────────────────────────────────
+  virtualisation.docker = {
+    enable           = true;
+    enableOnBoot     = false;
+    autoPrune.enable = true;
+  };
+
+  # ─── QEMU / KVM ─────────────────────────────────────────────────────────────
+  virtualisation.libvirtd = {
+    enable = true;
+    qemu = {
+      package     = pkgs.qemu_kvm;
+      ovmf.enable = true;
+      swtpm.enable = true;
+    };
+  };
+  programs.virt-manager.enable = true;
+
   # ─── Display manager ────────────────────────────────────────────────────────
   services.displayManager.ly.enable = true;
 
@@ -101,11 +144,34 @@
   };
   programs.gamemode.enable = true;
 
+  # ─── Printing ───────────────────────────────────────────────────────────────
+  services.printing = {
+    enable  = true;
+    drivers = [ pkgs.hplip ];
+  };
+  services.avahi = {
+    enable   = true;
+    nssmdns4 = true;
+  };
+
+  # ─── Fonts ──────────────────────────────────────────────────────────────────
+  fonts = {
+    enableDefaultPackages = true;
+    packages = with pkgs; [
+      noto-fonts
+      noto-fonts-cjk-sans
+      noto-fonts-emoji
+      inter
+      nerd-fonts.meslo-lg
+      nerd-fonts.jetbrains-mono
+    ];
+  };
+
   # ─── User ───────────────────────────────────────────────────────────────────
   users.users.shuntia = {
     isNormalUser = true;
     description  = "Shuntia";
-    extraGroups  = [ "wheel" "networkmanager" "video" "audio" ];
+    extraGroups  = [ "wheel" "networkmanager" "video" "audio" "docker" "libvirtd" "kvm" ];
     shell        = pkgs.fish;
     hashedPassword = ""; # populated by install.sh via mkpasswd
     openssh.authorizedKeys.keys = [
@@ -163,6 +229,9 @@
       "/var/lib/bluetooth"
       "/var/lib/NetworkManager"
       "/etc/NetworkManager/system-connections"
+      "/var/lib/docker"
+      "/var/lib/ollama"
+      "/var/lib/libvirt"
     ];
     files = [
       "/etc/machine-id"
@@ -180,6 +249,16 @@
         ".mozilla"
         ".steam" ".local/share/Steam"
         ".cache/mesa_shader_cache" ".cache/nv"
+        # Tool state
+        ".local/share/atuin"
+        ".local/share/zoxide"
+        ".local/share/pnpm"
+        ".local/share/yazi"
+        ".local/share/task"
+        ".cargo"
+        ".rustup"
+        "go"
+        ".wine"
       ];
     };
   };
