@@ -104,7 +104,7 @@
       desktop = "ssh shuntia@100.125.222.56";
 
       # system update (NixOS)
-      update = "sudo nixos-rebuild switch --flake ~/projects/configuration#shuntia-desktop; rustup update; pnpm update -g --latest";
+      update = "sudo nixos-rebuild switch --flake ~/projects/configuration#shuntia-nix; rustup update; pnpm update -g --latest";
 
       # nighttime mode
       nighttime = "killall hypridle;brightnessctl --device intel_backlight set 0;brightnessctl --device tpacpi::kbd_backlight set 0;wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 100%";
@@ -161,6 +161,7 @@
     imv
     zathura
     spotify
+    termusic
     obs-studio
     yt-dlp
     ffmpeg
@@ -226,6 +227,10 @@
     nmap
     socat
     gdb
+
+    # ── AI / ML ───────────────────────────────────────────────────────────────
+    llama-cpp
+    tabbyapi
 
     # ── DevOps / containers ───────────────────────────────────────────────────
     docker-compose

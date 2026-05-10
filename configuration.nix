@@ -64,7 +64,7 @@
   };
 
   # ─── Networking ─────────────────────────────────────────────────────────────
-  networking.hostName = "shuntia-desktop";
+  networking.hostName = "shuntia-nix";
   networking.networkmanager.enable = true;
   networking.firewall = {
     enable = true;

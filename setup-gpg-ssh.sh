@@ -59,5 +59,5 @@ gpg --export-ssh-key "${KEY_EMAIL}" 2>/dev/null \
     || { echo "  Could not export — ensure the [A] subkey was created and try again."; exit 1; }
 echo
 echo "==> Copy the key above and run:"
-echo "    nixos-rebuild switch --flake /etc/nixos#shuntia-desktop"
+echo "    nixos-rebuild switch --flake /etc/nixos#shuntia-nix"
 echo "    (after updating configuration.nix with the new key)"
