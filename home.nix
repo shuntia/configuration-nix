@@ -13,10 +13,10 @@
 
   # ─── Git ────────────────────────────────────────────────────────────────────
   programs.git = {
-    enable    = true;
-    userName  = "shuntia";
-    userEmail = "shuntia@shuntia.net";
-    extraConfig = {
+    enable   = true;
+    settings = {
+      user.name  = "shuntia";
+      user.email = "shuntia@shuntia.net";
       init.defaultBranch = "main";
       pull.rebase        = true;
     };
@@ -201,7 +201,6 @@
     nodejs           # npm / npx
     deno
     go
-    python3
     uv               # fast Python package manager
     jdk              # OpenJDK
     dotnet-sdk       # C# / .NET
