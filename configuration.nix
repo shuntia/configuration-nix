@@ -93,8 +93,8 @@
 
   # ─── Ollama ─────────────────────────────────────────────────────────────────
   services.ollama = {
-    enable       = true;
-    acceleration = "cuda";
+    enable  = true;
+    package = pkgs.ollama-cuda;
   };
 
   # ─── Docker ─────────────────────────────────────────────────────────────────
@@ -108,8 +108,7 @@
   virtualisation.libvirtd = {
     enable = true;
     qemu = {
-      package     = pkgs.qemu_kvm;
-      ovmf.enable = true;
+      package      = pkgs.qemu_kvm;
       swtpm.enable = true;
     };
   };
