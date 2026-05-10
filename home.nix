@@ -247,7 +247,6 @@
     zellij
     tmux
     tldr
-    curlie
     gdu
     age              # encryption
     asciinema
