@@ -96,8 +96,9 @@
     enable  = true;
     package = pkgs.ollama-cuda;
     home    = "/persist/ollama";
+    user    = "ollama";
+    group   = "ollama";
   };
-  systemd.services.ollama.serviceConfig.DynamicUser = lib.mkForce false;
   systemd.tmpfiles.rules = [ "d /persist/ollama 0700 ollama ollama -" ];
 
   # ─── Docker ─────────────────────────────────────────────────────────────────
