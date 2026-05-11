@@ -163,6 +163,7 @@
       address              = [ "0.0.0.0" ];
       port                 = [ 6167 ];
       allow_registration   = true;
+      yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
       allow_federation     = false;
     };
   };
