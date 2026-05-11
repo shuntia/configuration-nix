@@ -155,8 +155,8 @@
   };
   programs.gamemode.enable = true;
 
-  # ─── Conduwuit / Tuwunel (Matrix homeserver) ────────────────────────────────
-  services.conduwuit = {
+  # ─── Tuwunel (Matrix homeserver) ────────────────────────────────────────────
+  services.matrix-tuwunel = {
     enable = true;
     settings.global = {
       server_name          = "shuntia-nix";
@@ -262,7 +262,7 @@
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
       "/var/lib/libvirt"
-      "/var/lib/conduwuit"
+      "/var/lib/matrix-tuwunel"
     ];
     files = [
       "/etc/machine-id"
