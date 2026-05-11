@@ -299,7 +299,7 @@
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
       "/var/lib/libvirt"
-      "/var/lib/ollama"
+      "/var/lib/private/ollama"
       "/var/lib/matrix-tuwunel"
     ];
     files = [
