@@ -91,12 +91,6 @@
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
 
-  # ─── Ollama ─────────────────────────────────────────────────────────────────
-  services.ollama = {
-    enable  = true;
-    package = pkgs.ollama-cuda;
-  };
-
   # ─── Docker ─────────────────────────────────────────────────────────────────
   virtualisation.docker = {
     enable           = true;
@@ -160,6 +154,26 @@
     gamescopeSession.enable = true;
   };
   programs.gamemode.enable = true;
+
+  # ─── Tuwunel (Matrix homeserver) ────────────────────────────────────────────
+  services.tuwunel = {
+    enable = true;
+    settings.global = {
+      server_name          = "shuntia-nix";
+      address              = [ "0.0.0.0" ];
+      port                 = 6167;
+      allow_registration   = true;
+      allow_federation     = false;
+    };
+  };
+
+  # ─── Sunshine (Moonlight streaming) ─────────────────────────────────────────
+  services.sunshine = {
+    enable      = true;
+    autoStart   = true;
+    capSysAdmin = true; # required for KMS display capture on Wayland
+    openFirewall = true;
+  };
 
   # ─── Printing ───────────────────────────────────────────────────────────────
   services.printing = {
@@ -247,8 +261,8 @@
       "/var/lib/NetworkManager"
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
-      "/var/lib/ollama"
       "/var/lib/libvirt"
+      "/var/lib/tuwunel"
     ];
     files = [
       "/etc/machine-id"
@@ -276,6 +290,7 @@
         ".rustup"
         "go"
         ".wine"
+        ".config/sunshine"
       ];
     };
   };
