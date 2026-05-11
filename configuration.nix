@@ -95,6 +95,7 @@
   services.ollama = {
     enable  = true;
     package = pkgs.ollama-cuda;
+    home    = "/persist/ollama";
   };
 
   # ─── Docker ─────────────────────────────────────────────────────────────────
@@ -299,7 +300,6 @@
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
       "/var/lib/libvirt"
-      "/var/lib/private/ollama"
       "/var/lib/matrix-tuwunel"
     ];
     files = [
