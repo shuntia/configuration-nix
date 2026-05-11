@@ -97,6 +97,7 @@
     package = pkgs.ollama-cuda;
     home    = "/persist/ollama";
   };
+  systemd.tmpfiles.rules = [ "d /persist/ollama 0755 root root -" ];
 
   # ─── Docker ─────────────────────────────────────────────────────────────────
   virtualisation.docker = {
