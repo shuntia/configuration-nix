@@ -203,7 +203,7 @@
     deno
     go
     uv               # fast Python package manager
-    (pkgs.python3.withPackages (ps: with ps; [
+    (lib.hiPrio (pkgs.python3.withPackages (ps: with ps; [
       requests
       rich
       httpx
@@ -213,7 +213,7 @@
       pillow
       beautifulsoup4
       pygments
-    ]))
+    ])))
     jdk              # OpenJDK
     dotnet-sdk       # C# / .NET
     ruby
@@ -275,6 +275,20 @@
     p7zip
     file
   ];
+
+  # ─── LM Studio daemon ───────────────────────────────────────────────────────
+  systemd.user.services.lmstudio-server = {
+    Unit = {
+      Description = "LM Studio local inference server";
+      After       = [ "network.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.lmstudio}/bin/lms server start";
+      Restart    = "on-failure";
+      Type       = "simple";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
 
   programs.home-manager.enable = true;
 }

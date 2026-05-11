@@ -328,6 +328,8 @@
         "go"
         ".wine"
         ".config/sunshine"
+        ".lmstudio"
+        "models"
       ];
     };
   };
