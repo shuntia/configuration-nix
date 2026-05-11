@@ -161,7 +161,7 @@
     settings.global = {
       server_name          = "shuntia-nix";
       address              = [ "0.0.0.0" ];
-      port                 = 6167;
+      port                 = [ 6167 ];
       allow_registration   = true;
       allow_federation     = false;
     };
