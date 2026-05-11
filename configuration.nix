@@ -213,6 +213,9 @@
   };
   security.sudo.wheelNeedsPassword = true;
 
+  # ─── FUSE ───────────────────────────────────────────────────────────────────
+  programs.fuse.userAllowOther = true;
+
   # ─── SSH ────────────────────────────────────────────────────────────────────
   services.openssh = {
     enable = true;
