@@ -170,10 +170,17 @@
 
   # ─── Sunshine (Moonlight streaming) ─────────────────────────────────────────
   services.sunshine = {
-    enable      = true;
-    autoStart   = true;
-    capSysAdmin = true; # required for KMS display capture on Wayland
+    enable       = true;
+    autoStart    = true;
+    capSysAdmin  = true; # required for KMS/DRM display capture on Wayland
     openFirewall = true;
+    applications.apps = [
+      { name = "Desktop"; }
+      {
+        name = "Steam Big Picture";
+        cmd  = "steam -gamepadui";
+      }
+    ];
   };
 
   # ─── Printing ───────────────────────────────────────────────────────────────
