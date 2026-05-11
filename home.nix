@@ -203,6 +203,17 @@
     deno
     go
     uv               # fast Python package manager
+    (pkgs.python3.withPackages (ps: with ps; [
+      requests
+      rich
+      httpx
+      pydantic
+      click
+      tqdm
+      pillow
+      beautifulsoup4
+      pygments
+    ]))
     jdk              # OpenJDK
     dotnet-sdk       # C# / .NET
     ruby

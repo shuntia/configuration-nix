@@ -91,6 +91,12 @@
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
 
+  # ─── Ollama ─────────────────────────────────────────────────────────────────
+  services.ollama = {
+    enable  = true;
+    package = pkgs.ollama-cuda;
+  };
+
   # ─── Docker ─────────────────────────────────────────────────────────────────
   virtualisation.docker = {
     enable           = true;
@@ -233,29 +239,49 @@
     };
   };
 
-  # ─── Impermanence: wipe @home on every boot ─────────────────────────────────
+  # ─── Impermanence: wipe @root and @home on every boot ──────────────────────
   boot.initrd.systemd.enable = true;
 
-  boot.initrd.systemd.services.wipe-home = {
-    description = "Wipe @home btrfs subvolume";
+  boot.initrd.systemd.services.wipe-root-and-home = {
+    description = "Wipe @root and @home btrfs subvolumes";
     wantedBy    = [ "initrd.target" ];
     before      = [ "sysroot.mount" ];
     unitConfig.DefaultDependencies = "no";
     serviceConfig.Type = "oneshot";
-    path   = [ pkgs.btrfs-progs pkgs.util-linux ];
-    script = ''
-      mkdir -p /btrfs_tmp
-      mount -o subvol=/ /dev/disk/by-label/nixos /btrfs_tmp
-      if [ -e /btrfs_tmp/@home ]; then
-        btrfs subvolume delete /btrfs_tmp/@home
-      fi
-      btrfs subvolume create /btrfs_tmp/@home
-      umount /btrfs_tmp
-    '';
+    path   = [ pkgs.btrfs-progs pkgs.util-linux pkgs.coreutils ];
+    script =
+      let device = config.fileSystems."/".device; in
+      ''
+        mkdir -p /btrfs_tmp
+        mount -o subvol=/ ${device} /btrfs_tmp
+
+        TIMESTAMP=$(date +%Y%m%dT%H%M%S)
+
+        snapshot_and_wipe() {
+          local subvol="$1"
+          if [ -e "/btrfs_tmp/$subvol" ]; then
+            btrfs subvolume snapshot -r "/btrfs_tmp/$subvol" "/btrfs_tmp/$subvol-$TIMESTAMP" || true
+            btrfs subvolume delete "/btrfs_tmp/$subvol"
+          fi
+          btrfs subvolume create "/btrfs_tmp/$subvol"
+        }
+
+        snapshot_and_wipe @root
+        snapshot_and_wipe @home
+
+        # Keep the 3 most recent snapshots for each, delete older ones
+        for prefix in @root @home; do
+          ls -d /btrfs_tmp/"$prefix"-* 2>/dev/null | sort | head -n -3 | \
+            while IFS= read -r snap; do btrfs subvolume delete "$snap"; done
+        done
+
+        umount /btrfs_tmp
+      '';
   };
 
   fileSystems."/persist".neededForBoot = true;
   fileSystems."/home".neededForBoot    = true;
+  fileSystems."/nix".neededForBoot     = true;
 
   fileSystems."/boot".options     = [ "umask=0077" ];
   fileSystems."/boot.bak".options = [ "umask=0077" ];
@@ -273,6 +299,7 @@
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
       "/var/lib/libvirt"
+      "/var/lib/ollama"
       "/var/lib/matrix-tuwunel"
     ];
     files = [
