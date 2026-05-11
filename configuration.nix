@@ -91,16 +91,6 @@
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
 
-  # ─── Ollama ─────────────────────────────────────────────────────────────────
-  services.ollama = {
-    enable  = true;
-    package = pkgs.ollama-cuda;
-    home    = "/persist/ollama";
-    user    = "ollama";
-    group   = "ollama";
-  };
-  systemd.tmpfiles.rules = [ "d /persist/ollama 0700 ollama ollama -" ];
-
   # ─── Docker ─────────────────────────────────────────────────────────────────
   virtualisation.docker = {
     enable           = true;
