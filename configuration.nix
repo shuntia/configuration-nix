@@ -68,16 +68,27 @@
   networking.networkmanager.enable = true;
   networking.firewall = {
     enable = true;
+    # Globally reachable
     allowedTCPPorts = [
       22    # SSH
       6167  # Matrix Tuwunel
-      8188  # ComfyUI
-      11434 # Ollama
-      1234  # LM Studio
-      8080  # llama.cpp
-      9000  # local testing
     ];
     trustedInterfaces = [ "tailscale0" ];
+    # LAN-only ports: RFC1918 (IPv4) + LAN prefix (IPv6)
+    # IPv6 prefix is ISP-assigned and may change; update if so.
+    extraCommands =
+      let
+        lanPorts  = [ 8188 11434 1234 8080 9000 ];
+        ipv6Lan   = "2601:647:4101:a5c0::/64";
+        v4Sources = [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" ];
+        v6Sources = [ ipv6Lan "fe80::/10" ];
+        mkRule = ipt: src: port:
+          "${ipt} -A nixos-fw -p tcp --dport ${toString port} -s ${src} -j nixos-fw-accept";
+      in
+      lib.concatMapStrings (port:
+        lib.concatMapStrings (src: mkRule "iptables"  src port + "\n") v4Sources +
+        lib.concatMapStrings (src: mkRule "ip6tables" src port + "\n") v6Sources
+      ) lanPorts;
   };
 
   # ─── Locale ─────────────────────────────────────────────────────────────────
