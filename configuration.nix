@@ -66,6 +66,10 @@
   # ─── Networking ─────────────────────────────────────────────────────────────
   networking.hostName = "shuntia-nix";
   networking.networkmanager.enable = true;
+  networking.interfaces.eno2.ipv6.addresses = [{
+    address      = "2601:647:4101:a5c0::1";
+    prefixLength = 64;
+  }];
   networking.firewall = {
     enable = true;
     # Globally reachable
