@@ -117,11 +117,8 @@
   # ─── Power / performance ────────────────────────────────────────────────────
   services.irqbalance.enable = true;
   boot.kernel.sysctl = {
-    "vm.swappiness"          = 10;
-    "vm.vfs_cache_pressure"  = 50;
-    # IPv6 privacy extensions — randomise host address, rotate periodically
-    "net.ipv6.conf.all.use_tempaddr"     = 2;
-    "net.ipv6.conf.default.use_tempaddr" = 2;
+    "vm.swappiness"         = 10;
+    "vm.vfs_cache_pressure" = 50;
   };
 
   # ─── Fail2ban ───────────────────────────────────────────────────────────────
