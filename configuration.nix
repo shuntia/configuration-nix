@@ -249,34 +249,40 @@
     before      = [ "sysroot.mount" ];
     unitConfig.DefaultDependencies = "no";
     serviceConfig.Type = "oneshot";
-    path   = [ pkgs.btrfs-progs pkgs.util-linux pkgs.coreutils ];
     script =
-      let device = config.fileSystems."/".device; in
+      let
+        device = config.fileSystems."/".device;
+        btrfs  = "${pkgs.btrfs-progs}/bin/btrfs";
+        mount  = "${pkgs.util-linux}/bin/mount";
+        umount = "${pkgs.util-linux}/bin/umount";
+        date   = "${pkgs.coreutils}/bin/date";
+        ls     = "${pkgs.coreutils}/bin/ls";
+        mkdir  = "${pkgs.coreutils}/bin/mkdir";
+      in
       ''
-        mkdir -p /btrfs_tmp
-        mount -o subvol=/ ${device} /btrfs_tmp
+        ${mkdir} -p /btrfs_tmp
+        ${mount} -o subvol=/ ${device} /btrfs_tmp
 
-        TIMESTAMP=$(date +%Y%m%dT%H%M%S)
+        TIMESTAMP=$(${date} +%Y%m%dT%H%M%S)
 
         snapshot_and_wipe() {
           local subvol="$1"
           if [ -e "/btrfs_tmp/$subvol" ]; then
-            btrfs subvolume snapshot -r "/btrfs_tmp/$subvol" "/btrfs_tmp/$subvol-$TIMESTAMP" || true
-            btrfs subvolume delete "/btrfs_tmp/$subvol"
+            ${btrfs} subvolume snapshot -r "/btrfs_tmp/$subvol" "/btrfs_tmp/$subvol-$TIMESTAMP" || true
+            ${btrfs} subvolume delete "/btrfs_tmp/$subvol"
           fi
-          btrfs subvolume create "/btrfs_tmp/$subvol"
+          ${btrfs} subvolume create "/btrfs_tmp/$subvol"
         }
 
         snapshot_and_wipe @root
         snapshot_and_wipe @home
 
-        # Keep the 3 most recent snapshots for each, delete older ones
         for prefix in @root @home; do
-          ls -d /btrfs_tmp/"$prefix"-* 2>/dev/null | sort | head -n -3 | \
-            while IFS= read -r snap; do btrfs subvolume delete "$snap"; done
+          ${ls} -d /btrfs_tmp/"$prefix"-* 2>/dev/null | sort | head -n -3 | \
+            while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done
         done
 
-        umount /btrfs_tmp
+        ${umount} /btrfs_tmp
       '';
   };
 
