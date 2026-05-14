@@ -212,6 +212,7 @@
       allow_registration   = true;
       yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
       allow_federation     = false;
+      well_known_client    = "http://10.0.0.65:6167";
     };
   };
 
