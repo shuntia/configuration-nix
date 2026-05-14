@@ -397,7 +397,7 @@
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
       "/var/lib/libvirt"
-      "/var/lib/tuwunel"
+      "/var/lib/private/tuwunel"
     ];
     files = [
       "/etc/machine-id"
