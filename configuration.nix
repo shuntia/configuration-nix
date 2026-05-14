@@ -335,7 +335,6 @@
     htop nvtopPackages.nvidia
     wget curl
     tree file unzip zip rsync
-    huggingface-hub
   ];
 
   nixpkgs.config.allowUnfree = true;
