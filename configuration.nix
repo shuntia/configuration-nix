@@ -113,6 +113,10 @@
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
 
+  # /var/lib/private must be 0700 for DynamicUser services; impermanence
+  # creates it with 0755 as a bind-mount parent, so correct it at boot.
+  systemd.tmpfiles.rules = [ "d /var/lib/private 0700 root root -" ];
+
   # ─── Power / performance ────────────────────────────────────────────────────
   services.irqbalance.enable = true;
   boot.kernel.sysctl = {
