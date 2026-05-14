@@ -68,7 +68,15 @@
   networking.networkmanager.enable = true;
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = [ 22 ];
+    allowedTCPPorts = [
+      22    # SSH
+      6167  # Matrix Tuwunel
+      8188  # ComfyUI
+      11434 # Ollama
+      1234  # LM Studio
+      8080  # llama.cpp
+      9000  # local testing
+    ];
     trustedInterfaces = [ "tailscale0" ];
   };
 
