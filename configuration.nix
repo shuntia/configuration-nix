@@ -211,7 +211,6 @@
       allow_registration = true;
       yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
       allow_federation   = false;
-      well_known_client  = "https://shuntia-nix.tail5ec9c9.ts.net";
     };
   };
 
@@ -224,6 +223,13 @@
       forceSSL          = true;
       sslCertificate    = "/persist/tailscale-certs/cert.crt";
       sslCertificateKey = "/persist/tailscale-certs/cert.key";
+      locations."/.well-known/matrix/client" = {
+        extraConfig = ''
+          add_header Content-Type application/json;
+          add_header Access-Control-Allow-Origin *;
+          return 200 '{"m.homeserver":{"base_url":"https://shuntia-nix.tail5ec9c9.ts.net"}}';
+        '';
+      };
       locations."/" = {
         proxyPass       = "http://127.0.0.1:6167";
         proxyWebsockets = true;
@@ -391,7 +397,7 @@
       "/etc/NetworkManager/system-connections"
       "/var/lib/docker"
       "/var/lib/libvirt"
-      "/var/lib/matrix-tuwunel"
+      "/var/lib/tuwunel"
     ];
     files = [
       "/etc/machine-id"
