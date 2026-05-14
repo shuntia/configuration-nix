@@ -1,5 +1,12 @@
 { config, lib, pkgs, ... }:
 
+let
+  user     = "shuntia";
+  fullName = "Shuntia";
+  hostname = "shuntia-nix";
+  tailnet  = "tail5ec9c9.ts.net";
+  tsFQDN   = "${hostname}.${tailnet}";
+in
 {
   imports = [ ./hardware-configuration.nix ];
 
@@ -44,7 +51,7 @@
     cleanupInterval  = "1d";
     configs.persist = {
       SUBVOLUME          = "/persist";
-      ALLOW_USERS        = [ "shuntia" ];
+      ALLOW_USERS        = [ user ];
       TIMELINE_CREATE    = true;
       TIMELINE_CLEANUP   = true;
       TIMELINE_LIMIT_HOURLY  = "10";
@@ -64,7 +71,7 @@
   };
 
   # ─── Networking ─────────────────────────────────────────────────────────────
-  networking.hostName = "shuntia-nix";
+  networking.hostName = hostname;
   networking.networkmanager.enable = true;
   networking.interfaces.eno2.ipv6.addresses = [{
     address      = "2601:647:4101:a5c0::1";
@@ -205,7 +212,7 @@
   services.matrix-tuwunel = {
     enable = true;
     settings.global = {
-      server_name        = "shuntia-nix.tail5ec9c9.ts.net";
+      server_name        = tsFQDN;
       address            = [ "127.0.0.1" ];
       port               = [ 6167 ];
       allow_registration = false;
@@ -218,7 +225,7 @@
     enable                 = true;
     recommendedProxySettings = true;
     recommendedTlsSettings   = true;
-    virtualHosts."shuntia-nix.tail5ec9c9.ts.net" = {
+    virtualHosts.${tsFQDN} = {
       forceSSL          = true;
       sslCertificate    = "/persist/tailscale-certs/cert.crt";
       sslCertificateKey = "/persist/tailscale-certs/cert.key";
@@ -226,7 +233,7 @@
         extraConfig = ''
           add_header Content-Type application/json;
           add_header Access-Control-Allow-Origin *;
-          return 200 '{"m.homeserver":{"base_url":"https://shuntia-nix.tail5ec9c9.ts.net"}}';
+          return 200 '{"m.homeserver":{"base_url":"https://${tsFQDN}"}}';
         '';
       };
       locations."/" = {
@@ -254,7 +261,7 @@
       ${pkgs.tailscale}/bin/tailscale cert \
         --cert-file /persist/tailscale-certs/cert.crt \
         --key-file  /persist/tailscale-certs/cert.key \
-        shuntia-nix.tail5ec9c9.ts.net
+        ${tsFQDN}
       chown root:nginx /persist/tailscale-certs/cert.key
       chmod 640        /persist/tailscale-certs/cert.key
     '';
@@ -307,12 +314,12 @@
   };
 
   # ─── User ───────────────────────────────────────────────────────────────────
-  users.users.shuntia = {
+  users.users.${user} = {
     isNormalUser = true;
-    description  = "Shuntia";
+    description  = fullName;
     extraGroups  = [ "wheel" "networkmanager" "video" "audio" "docker" "libvirtd" "kvm" ];
     shell        = pkgs.fish;
-    hashedPasswordFile = "/persist/secrets/shuntia-password";
+    hashedPasswordFile = "/persist/secrets/${user}-password";
     openssh.authorizedKeys.keys = [
       "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDh2RGhHE6CJRdyC/AvMDEPmjFcEE/YjLER3VXYBfhNPAWTD+oUJNFVJ9OL1tpwxcCH/Ev4CPHBNS9iDSh+PlKELNRZzRuKGKH6a3LB0MVz9/+tSvT+wYGjiAvxOxjz29qOHZH41bxJc3bskP71glPxbi/krxpdI8r5s/z7oqILjwMQb9xgkxtAEXGJ+3JLGn4/cCX/cKsCR8i6bFWrh/sYRQxuzuTZBCKbaE1qR93JyObX1YGh3PAQXWYRqwfnoVg/ZiBSwZzX6lHQxPKmkSYuI2AKdWX2eXg3xmcXeEPH1zoPkLJREkdvGrXWZgrSK6ekNZLa0fGx60ahkZ8J01ycCXZALmyKPkKtP+7QEbLuVE47V7XwJjIteV5NFeuX9am1y9Vo7wm7+XPC52AAhZZh/xarCUWwtzMqG5sSSlRibd0QVarhu3oi5Betzj+DUApfMar2XYvdltVWvbr45tgCZrYLz3CoEEXzi6yeLTjcpi1W0D1xnLSRNiqLRUJJ/bjG6MBxkRZt3+t6EDoCxoJdv32mvF1rw8BZZTrMKzMHX4/NV+xWhpvhqz25HdA7O157ikcSRsCrlCa/gOzrrecnmhwT5Um480t/1ItykO6qDAy9dCJJtb6laBG/HF9tojeeN3E0XYj6ineQlun/DaYvanUpVZQG83V0/snA+Yn1Aw== openpgp:0xD6B8B7E2"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPKbj82bzvetG8qKKfORDXTse5XteZpT3Dkmw33nmQLs shuntia@ShuntiArch"
@@ -408,7 +415,7 @@
       "/etc/ssh/ssh_host_rsa_key"
       "/etc/ssh/ssh_host_rsa_key.pub"
     ];
-    users.shuntia = {
+    users.${user} = {
       directories = [
         "Documents" "Projects" "Downloads" "Pictures" "Music" "Videos"
         ".ssh" ".gnupg"
