@@ -102,8 +102,28 @@
   # ─── Power / performance ────────────────────────────────────────────────────
   services.irqbalance.enable = true;
   boot.kernel.sysctl = {
-    "vm.swappiness" = 10;
-    "vm.vfs_cache_pressure" = 50;
+    "vm.swappiness"          = 10;
+    "vm.vfs_cache_pressure"  = 50;
+    # IPv6 privacy extensions — randomise host address, rotate periodically
+    "net.ipv6.conf.all.use_tempaddr"     = 2;
+    "net.ipv6.conf.default.use_tempaddr" = 2;
+  };
+
+  # ─── Fail2ban ───────────────────────────────────────────────────────────────
+  services.fail2ban = {
+    enable    = true;
+    maxretry  = 5;
+    bantime   = "10m";
+    bantime-increment = {
+      enable      = true;
+      multipliers = "1 2 4 8 16 32 64";
+      maxtime     = "168h";
+      overalljails = true;
+    };
+    jails.sshd.settings = {
+      enabled  = true;
+      maxretry = 3;
+    };
   };
 
   # ─── Docker ─────────────────────────────────────────────────────────────────
