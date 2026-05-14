@@ -84,12 +84,19 @@
     open = false;
     nvidiaSettings = true;
     package = config.boot.kernelPackages.nvidiaPackages.stable;
-    powerManagement.enable = false;
+    powerManagement.enable = true;
   };
   services.xserver.videoDrivers = [ "nvidia" ];
 
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
+
+  # ─── Power / performance ────────────────────────────────────────────────────
+  services.irqbalance.enable = true;
+  boot.kernel.sysctl = {
+    "vm.swappiness" = 10;
+    "vm.vfs_cache_pressure" = 50;
+  };
 
   # ─── Docker ─────────────────────────────────────────────────────────────────
   virtualisation.docker = {
