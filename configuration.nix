@@ -309,7 +309,7 @@
         ".local/share/keyrings"
         ".mozilla"
         ".steam" ".local/share/Steam"
-        ".cache/mesa_shader_cache" ".cache/nv"
+        ".cache/mesa_shader_cache" ".cache/nv" ".cache/nix"
         # Tool state
         ".local/share/atuin"
         ".local/share/zoxide"
@@ -335,6 +335,7 @@
     htop nvtopPackages.nvidia
     wget curl
     tree file unzip zip rsync
+    huggingface-hub
   ];
 
   nixpkgs.config.allowUnfree = true;
