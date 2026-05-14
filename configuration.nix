@@ -75,7 +75,6 @@
     # Globally reachable
     allowedTCPPorts = [
       22    # SSH
-      6167  # Matrix Tuwunel
     ];
     trustedInterfaces = [ "tailscale0" ];
     # LAN-only ports: RFC1918 (IPv4) + LAN prefix (IPv6)
@@ -206,13 +205,58 @@
   services.matrix-tuwunel = {
     enable = true;
     settings.global = {
-      server_name          = "shuntia-nix";
-      address              = [ "0.0.0.0" ];
-      port                 = [ 6167 ];
-      allow_registration   = true;
+      server_name        = "shuntia-nix.tail5ec9c9.ts.net";
+      address            = [ "127.0.0.1" ];
+      port               = [ 6167 ];
+      allow_registration = true;
       yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
-      allow_federation     = false;
-      well_known_client    = "http://10.0.0.65:6167";
+      allow_federation   = false;
+      well_known_client  = "https://shuntia-nix.tail5ec9c9.ts.net";
+    };
+  };
+
+  # ─── nginx (Matrix reverse proxy over Tailscale TLS) ────────────────────────
+  services.nginx = {
+    enable                 = true;
+    recommendedProxySettings = true;
+    recommendedTlsSettings   = true;
+    virtualHosts."shuntia-nix.tail5ec9c9.ts.net" = {
+      forceSSL          = true;
+      sslCertificate    = "/persist/tailscale-certs/cert.crt";
+      sslCertificateKey = "/persist/tailscale-certs/cert.key";
+      locations."/" = {
+        proxyPass       = "http://127.0.0.1:6167";
+        proxyWebsockets = true;
+      };
+    };
+  };
+  systemd.services.nginx.after = [ "tailscale-cert.service" ];
+  systemd.services.nginx.wants = [ "tailscale-cert.service" ];
+
+  # Fetch/renew Tailscale TLS cert; runs 2 min after boot and weekly thereafter
+  systemd.services.tailscale-cert = {
+    description = "Obtain/renew Tailscale TLS certificate";
+    after       = [ "tailscaled.service" "network-online.target" ];
+    wants       = [ "network-online.target" ];
+    wantedBy    = [ "multi-user.target" ];
+    serviceConfig.Type            = "oneshot";
+    serviceConfig.RemainAfterExit = true;
+    script = ''
+      mkdir -p /persist/tailscale-certs
+      ${pkgs.tailscale}/bin/tailscale cert \
+        --cert-file /persist/tailscale-certs/cert.crt \
+        --key-file  /persist/tailscale-certs/cert.key \
+        shuntia-nix.tail5ec9c9.ts.net
+      chown root:nginx /persist/tailscale-certs/cert.key
+      chmod 640        /persist/tailscale-certs/cert.key
+    '';
+  };
+  systemd.timers.tailscale-cert = {
+    wantedBy    = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec  = "2min";
+      OnCalendar = "weekly";
+      Persistent = true;
     };
   };
 
