@@ -98,15 +98,7 @@ in
       lib.concatMapStrings (port:
         lib.concatMapStrings (src: mkRule "iptables"  src port + "\n") v4Sources +
         lib.concatMapStrings (src: mkRule "ip6tables" src port + "\n") v6Sources
-      ) lanPorts
-      + ''
-        # SSH pre-connection rate limiting: max 3 new connections per 60s per source IP.
-        # Packets are dropped at the kernel before sshd is involved.
-        iptables  -A nixos-fw -p tcp --dport 22 -m conntrack --ctstate NEW -m recent --set    --name sshrl  --rsource
-        iptables  -A nixos-fw -p tcp --dport 22 -m conntrack --ctstate NEW -m recent --update --seconds 60 --hitcount 4 --name sshrl  --rsource -j DROP
-        ip6tables -A nixos-fw -p tcp --dport 22 -m conntrack --ctstate NEW -m recent --set    --name sshrl6 --rsource
-        ip6tables -A nixos-fw -p tcp --dport 22 -m conntrack --ctstate NEW -m recent --update --seconds 60 --hitcount 4 --name sshrl6 --rsource -j DROP
-      '';
+      ) lanPorts;
   };
 
   # ─── Fail2ban ───────────────────────────────────────────────────────────────
