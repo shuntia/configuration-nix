@@ -29,6 +29,206 @@
   programs.fzf     = { enable = true; enableFishIntegration = true; };
   programs.lazygit.enable = true;
 
+  # ─── Neovim ─────────────────────────────────────────────────────────────────
+  programs.neovim = {
+    enable        = true;
+    defaultEditor = true;
+    viAlias       = true;
+    vimAlias      = true;
+
+    plugins = with pkgs.vimPlugins; [
+      # theme + UI chrome
+      catppuccin-nvim
+      lualine-nvim
+      bufferline-nvim
+      nvim-web-devicons
+
+      # git
+      gitsigns-nvim
+
+      # keybinding hints
+      which-key-nvim
+
+      # editing helpers
+      nvim-autopairs
+      comment-nvim
+      indent-blankline-nvim
+
+      # file tree
+      neo-tree-nvim
+      nui-nvim
+      plenary-nvim
+
+      # fuzzy finding
+      telescope-nvim
+
+      # syntax / parsing
+      nvim-treesitter.withAllGrammars
+
+      # LSP
+      nvim-lspconfig
+
+      # completion
+      nvim-cmp
+      cmp-nvim-lsp
+      cmp-buffer
+      cmp-path
+      luasnip
+      cmp_luasnip
+      friendly-snippets
+    ];
+
+    extraPackages = with pkgs; [
+      nixd                                   # Nix
+      lua-language-server                    # Lua
+      rust-analyzer                          # Rust
+      nodePackages.typescript-language-server # TS/JS
+      pyright                                # Python
+      clang-tools                            # C/C++ (clangd)
+      gopls                                  # Go
+      zls                                    # Zig
+    ];
+
+    extraLuaConfig = ''
+      vim.g.mapleader      = " "
+      vim.g.maplocalleader = " "
+
+      vim.opt.number         = true
+      vim.opt.relativenumber = true
+      vim.opt.expandtab      = true
+      vim.opt.shiftwidth     = 2
+      vim.opt.tabstop        = 2
+      vim.opt.smartindent    = true
+      vim.opt.wrap           = false
+      vim.opt.undofile       = true
+      vim.opt.termguicolors  = true
+      vim.opt.scrolloff      = 8
+      vim.opt.signcolumn     = "yes"
+      vim.opt.cursorline     = true
+      vim.opt.updatetime     = 50
+      vim.opt.splitright     = true
+      vim.opt.splitbelow     = true
+
+      -- theme
+      require("catppuccin").setup({
+        flavour = "mocha",
+        integrations = {
+          bufferline = true,  gitsigns = true,
+          telescope  = { enabled = true },
+          treesitter = true,  which_key = true,
+          indent_blankline = { enabled = true },
+          native_lsp = { enabled = true },
+        },
+      })
+      vim.cmd.colorscheme("catppuccin")
+
+      -- status + buffer line
+      require("lualine").setup({ options = { theme = "catppuccin" } })
+      require("bufferline").setup({ options = { separator_style = "slant" } })
+      vim.keymap.set("n", "<Tab>",      "<cmd>BufferLineCycleNext<cr>")
+      vim.keymap.set("n", "<S-Tab>",    "<cmd>BufferLineCyclePrev<cr>")
+      vim.keymap.set("n", "<leader>x",  "<cmd>bd<cr>")
+
+      -- git signs
+      require("gitsigns").setup()
+
+      -- which-key
+      require("which-key").setup()
+
+      -- autopairs
+      require("nvim-autopairs").setup({ check_ts = true })
+
+      -- commenting
+      require("Comment").setup()
+
+      -- indent guides
+      require("ibl").setup()
+
+      -- file tree
+      require("neo-tree").setup({
+        window     = { width = 30 },
+        filesystem = { filtered_items = { visible = true } },
+      })
+      vim.keymap.set("n", "<leader>e", "<cmd>Neotree toggle<cr>")
+
+      -- telescope
+      local tb = require("telescope.builtin")
+      vim.keymap.set("n", "<leader>ff", tb.find_files)
+      vim.keymap.set("n", "<leader>fg", tb.live_grep)
+      vim.keymap.set("n", "<leader>fb", tb.buffers)
+      vim.keymap.set("n", "<leader>fd", tb.diagnostics)
+      vim.keymap.set("n", "<leader>fs", tb.lsp_document_symbols)
+
+      -- treesitter
+      require("nvim-treesitter.configs").setup({
+        highlight = { enable = true },
+        indent    = { enable = true },
+      })
+
+      -- snippets
+      require("luasnip.loaders.from_vscode").lazy_load()
+
+      -- completion
+      local cmp     = require("cmp")
+      local luasnip = require("luasnip")
+      cmp.setup({
+        snippet = { expand = function(a) luasnip.lsp_expand(a.body) end },
+        mapping = cmp.mapping.preset.insert({
+          ["<C-Space>"] = cmp.mapping.complete(),
+          ["<CR>"]      = cmp.mapping.confirm({ select = true }),
+          ["<C-e>"]     = cmp.mapping.abort(),
+          ["<Tab>"] = cmp.mapping(function(fb)
+            if cmp.visible() then cmp.select_next_item()
+            elseif luasnip.expand_or_jumpable() then luasnip.expand_or_jump()
+            else fb() end
+          end, { "i", "s" }),
+          ["<S-Tab>"] = cmp.mapping(function(fb)
+            if cmp.visible() then cmp.select_prev_item()
+            elseif luasnip.jumpable(-1) then luasnip.jump(-1)
+            else fb() end
+          end, { "i", "s" }),
+        }),
+        sources = cmp.config.sources(
+          { { name = "nvim_lsp" }, { name = "luasnip" } },
+          { { name = "buffer" },   { name = "path" } }
+        ),
+      })
+
+      -- LSP
+      local lsp      = require("lspconfig")
+      local caps     = require("cmp_nvim_lsp").default_capabilities()
+      local on_attach = function(_, buf)
+        local o = { buffer = buf }
+        vim.keymap.set("n", "gd",         vim.lsp.buf.definition,    o)
+        vim.keymap.set("n", "gD",         vim.lsp.buf.declaration,   o)
+        vim.keymap.set("n", "gr",         vim.lsp.buf.references,    o)
+        vim.keymap.set("n", "gi",         vim.lsp.buf.implementation,o)
+        vim.keymap.set("n", "K",          vim.lsp.buf.hover,         o)
+        vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename,        o)
+        vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action,   o)
+        vim.keymap.set("n", "<leader>lf",
+          function() vim.lsp.buf.format({ async = true }) end, o)
+        vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, o)
+        vim.keymap.set("n", "]d", vim.diagnostic.goto_next, o)
+      end
+
+      for _, s in ipairs({
+        "nixd", "lua_ls", "rust_analyzer", "ts_ls",
+        "pyright", "clangd", "gopls", "zls",
+      }) do
+        lsp[s].setup({ capabilities = caps, on_attach = on_attach })
+      end
+
+      vim.diagnostic.config({
+        virtual_text     = true,
+        signs            = true,
+        underline        = true,
+        update_in_insert = false,
+        severity_sort    = true,
+      })
+    '';
+  };
+
   # ─── Fish configuration ──────────────────────────────────────────────────────
   programs.fish = {
     enable = true;
@@ -101,7 +301,8 @@
       rr  = "ritsu-server & ritsu start & disown ; disown";
 
       # remote
-      desktop = "ssh shuntia@100.125.222.56";
+      desktop    = "ssh shuntia@100.125.222.56";
+      hypr-remote = "systemctl --user start hyprland-remote";
 
       # system update (NixOS)
       update = "sudo nixos-rebuild switch --flake ~/projects/configuration#shuntia-nix; rustup update; pnpm update -g --latest";
@@ -154,6 +355,9 @@
     # ── Browsers ─────────────────────────────────────────────────────────────
     firefox
     chromium
+
+    # ── Audio / DAW ───────────────────────────────────────────────────────────
+    reaper
 
     # ── Media ────────────────────────────────────────────────────────────────
     mpv
@@ -289,6 +493,46 @@
       Type       = "simple";
     };
     Install.WantedBy = [ "default.target" ];
+  };
+
+  # ─── Remote Hyprland (headless + WayVNC) ───────────────────────────────────
+  # Minimal Hyprland config for the headless remote session.
+  # Start: systemctl --user start hyprland-remote
+  # Connect: ssh -L 5900:localhost:5900 host  →  VNC to localhost:5900
+  xdg.configFile."hypr/remote.conf".text = ''
+    monitor = HEADLESS-1, 1920x1080@60, 0x0, 1
+
+    exec-once = ${pkgs.wayvnc}/bin/wayvnc 127.0.0.1 5900
+
+    input {
+      kb_layout = us
+      follow_mouse = 1
+    }
+    general {
+      gaps_in    = 5
+      gaps_out   = 10
+      border_size = 2
+    }
+    decoration {
+      rounding = 8
+    }
+  '';
+
+  systemd.user.services.hyprland-remote = {
+    Unit.Description = "Headless Hyprland session for remote VNC access";
+    Service = {
+      Type       = "simple";
+      Environment = [
+        "WLR_BACKENDS=headless"
+        "WLR_LIBINPUT_NO_DEVICES=1"
+        "WAYLAND_DISPLAY=wayland-remote"
+        "XDG_SESSION_TYPE=wayland"
+        "XDG_CURRENT_DESKTOP=Hyprland"
+      ];
+      ExecStart  = "${pkgs.hyprland}/bin/Hyprland -c ${config.xdg.configHome}/hypr/remote.conf";
+      Restart    = "on-failure";
+      RestartSec = "3s";
+    };
   };
 
   programs.home-manager.enable = true;

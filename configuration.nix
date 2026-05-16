@@ -440,14 +440,94 @@ in
     };
   };
 
+  # ─── Security ───────────────────────────────────────────────────────────────
+  # Linux Audit daemon — logs syscall/file-access events to /var/log/audit/
+  security.auditd.enable = true;
+  security.audit.enable  = true;
+  security.audit.rules   = [
+    "-a exit,always -F arch=b64 -S execve"          # log all process execution
+    "-w /etc/passwd  -p wa -k identity"              # watch passwd writes
+    "-w /etc/shadow  -p wa -k identity"
+    "-w /etc/sudoers -p wa -k sudoers"
+    "-w /var/log     -p wa -k logs"
+  ];
+
+  # AppArmor mandatory-access-control
+  security.apparmor = {
+    enable      = true;
+    killUnconfinedConfinables = false;  # don't kill processes on policy reload
+  };
+
+  # ClamAV antivirus daemon + signature auto-updater
+  services.clamav = {
+    daemon.enable   = true;
+    updater.enable  = true;
+    updater.interval = "daily";
+  };
+
   # ─── Packages ───────────────────────────────────────────────────────────────
   environment.systemPackages = with pkgs; [
-    git vim neovim tmux
+    git vim tmux
     btrfs-progs
     pciutils usbutils lshw
     htop nvtopPackages.nvidia
     wget curl
     tree file unzip zip rsync
+
+    # ── GNU toolchain ──────────────────────────────────────────────────────────
+    gcc binutils gnumake autoconf automake libtool pkg-config
+    gdb
+
+    # ── LLVM toolchain ─────────────────────────────────────────────────────────
+    clang llvm lld lldb
+
+    # ── Build systems ──────────────────────────────────────────────────────────
+    cmake ninja meson ccache
+
+    # ── System monitoring / operations ─────────────────────────────────────────
+    lsof iotop sysstat htop
+    config.boot.kernelPackages.perf  # perf(1)
+    ltrace strace
+
+    # ── Networking ─────────────────────────────────────────────────────────────
+    tcpdump inetutils dnsutils
+
+    # ── Text / data processing ─────────────────────────────────────────────────
+    gawk patch patchutils
+    yq-go openssl
+
+    # ── Compression ────────────────────────────────────────────────────────────
+    zstd lz4 xz
+
+    # ── Execution helpers ──────────────────────────────────────────────────────
+    parallel expect
+
+    # ── GStreamer ──────────────────────────────────────────────────────────────
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
+    gst_all_1.gst-plugins-ugly
+    gst_all_1.gst-libav
+    gst_all_1.gst-vaapi
+
+    # ── Remote Wayland ─────────────────────────────────────────────────────────
+    waypipe   # SSH Wayland forwarding (like X11 forwarding, per-app)
+    wayvnc    # VNC server for Wayland compositors
+    wlr-randr # virtual display management for wlroots compositors
+
+    # ── Security audit / management ────────────────────────────────────────────
+    lynis          # host security auditing
+    aide           # file-integrity monitoring (AIDE)
+    chkrootkit     # rootkit detection
+    rkhunter       # rootkit / backdoor scanner
+    tshark         # Wireshark CLI for packet capture/analysis
+    acl attr       # POSIX ACL & xattr management
+    ssh-audit      # SSH config/cipher auditor
+    trivy          # vulnerability scanner (images, fs, git)
+    yara           # malware pattern matching
+    openscap       # SCAP/OVAL compliance scanner
+    audit          # userspace tools for Linux Audit (ausearch, auditctl…)
   ];
 
   nixpkgs.config.allowUnfree = true;
