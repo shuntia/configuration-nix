@@ -519,7 +519,6 @@ in
     # ── Security audit / management ────────────────────────────────────────────
     lynis          # host security auditing
     aide           # file-integrity monitoring (AIDE)
-    chkrootkit     # rootkit detection
     rkhunter       # rootkit / backdoor scanner
     tshark         # Wireshark CLI for packet capture/analysis
     acl attr       # POSIX ACL & xattr management
