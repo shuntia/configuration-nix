@@ -127,23 +127,6 @@ in
     "vm.vfs_cache_pressure" = 50;
   };
 
-  # ─── Fail2ban ───────────────────────────────────────────────────────────────
-  services.fail2ban = {
-    enable    = true;
-    maxretry  = 5;
-    bantime   = "10m";
-    bantime-increment = {
-      enable      = true;
-      multipliers = "1 2 4 8 16 32 64";
-      maxtime     = "168h";
-      overalljails = true;
-    };
-    jails.sshd.settings = {
-      enabled  = true;
-      maxretry = 3;
-    };
-  };
-
   # ─── Docker ─────────────────────────────────────────────────────────────────
   virtualisation.docker = {
     enable           = true;
@@ -451,12 +434,6 @@ in
     "-w /etc/sudoers -p wa -k sudoers"
     "-w /var/log     -p wa -k logs"
   ];
-
-  # AppArmor mandatory-access-control
-  security.apparmor = {
-    enable      = true;
-    killUnconfinedConfinables = false;  # don't kill processes on policy reload
-  };
 
   # ClamAV antivirus daemon + signature auto-updater
   services.clamav = {
