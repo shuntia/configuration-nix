@@ -468,6 +468,18 @@ in
     wget curl
     tree file unzip zip rsync
 
+    # ── General essentials ─────────────────────────────────────────────────────
+    sqlite        # embedded database
+    postgresql    # psql client + server tools
+    redis         # key-value store / cache
+    xh            # HTTP client (curl-like, Rust)
+    mtr           # network diagnostic (ping + traceroute)
+    iperf3        # bandwidth testing
+    whois         # WHOIS lookup
+    bc            # arbitrary-precision calculator
+    hexyl         # hex viewer
+    bandwhich     # network usage by process
+
     # ── GNU toolchain ──────────────────────────────────────────────────────────
     gcc binutils gnumake autoconf automake libtool pkg-config
     gdb
