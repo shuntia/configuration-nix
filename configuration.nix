@@ -519,13 +519,11 @@ in
     # ── Security audit / management ────────────────────────────────────────────
     lynis          # host security auditing
     aide           # file-integrity monitoring (AIDE)
-    rkhunter       # rootkit / backdoor scanner
     tshark         # Wireshark CLI for packet capture/analysis
     acl attr       # POSIX ACL & xattr management
     ssh-audit      # SSH config/cipher auditor
     trivy          # vulnerability scanner (images, fs, git)
     yara           # malware pattern matching
-    openscap       # SCAP/OVAL compliance scanner
     audit          # userspace tools for Linux Audit (ausearch, auditctl…)
   ];
 
