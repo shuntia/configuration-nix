@@ -82,7 +82,7 @@
       nixd                                   # Nix
       lua-language-server                    # Lua
       rust-analyzer                          # Rust
-      nodePackages.typescript-language-server # TS/JS
+      typescript-language-server             # TS/JS
       pyright                                # Python
       clang-tools                            # C/C++ (clangd)
       gopls                                  # Go
