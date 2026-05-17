@@ -164,9 +164,13 @@ in
   # ─── Display manager ────────────────────────────────────────────────────────
   services.displayManager.ly.enable = true;
 
-  # ─── Shell / Hyprland ───────────────────────────────────────────────────────
+  # ─── Shell / Hyprland / Sway ────────────────────────────────────────────────
   programs.fish.enable = true;
   programs.hyprland.enable = true;
+  programs.sway = {
+    enable = true;
+    wrapperFeatures.gtk = true;
+  };
   xdg.portal = {
     enable = true;
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
@@ -282,7 +286,10 @@ in
     capSysAdmin  = true; # required for KMS/DRM display capture on Wayland
     openFirewall = true;
     applications.apps = [
-      { name = "Desktop"; }
+      {
+        name = "Desktop";
+        cmd  = "${pkgs.sway}/bin/sway";
+      }
       {
         name = "Steam Big Picture";
         cmd  = "steam -gamepadui";

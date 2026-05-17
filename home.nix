@@ -302,7 +302,8 @@
 
       # remote
       desktop    = "ssh shuntia@100.125.222.56";
-      hypr-remote = "systemctl --user start hyprland-remote";
+      hypr-remote    = "systemctl --user start hyprland-remote";
+      sway-headless  = "WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 sway";
 
       # system update (NixOS)
       update = "sudo nixos-rebuild switch --flake ~/projects/configuration#shuntia-nix; rustup update; pnpm update -g --latest";
