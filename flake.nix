@@ -12,7 +12,7 @@
     impermanence.url = "github:nix-community/impermanence";
 
     illogical-flake = {
-      url = "github:soymou/illogical-flake";
+      url = "github:soymou/illogical-flake/d6ae33e596ac6d2e3c21ca92cec0c6cc17da9c70";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
