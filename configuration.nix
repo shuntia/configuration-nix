@@ -73,6 +73,7 @@ in
   # ─── Networking ─────────────────────────────────────────────────────────────
   networking.hostName = hostname;
   networking.networkmanager.enable = true;
+  networking.interfaces.eno2.useDHCP = true;
   networking.interfaces.eno2.ipv6.addresses = [{
     address      = "2601:647:4101:a5c0::1";
     prefixLength = 64;

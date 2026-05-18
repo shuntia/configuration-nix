@@ -11,6 +11,71 @@
   # Override the upstream starship.toml with the personal config
   xdg.configFile."starship.toml" = lib.mkForce { source = ./starship.toml; };
 
+  # ─── llama-server preset config ─────────────────────────────────────────────
+  # RTX 2080 Ti (Turing, CC 7.5, 11GB VRAM). Flash-attn on for q8_0 KV cache.
+  # GGML_CUDA_FA_ALL_QUANTS=ON (compiled in llama-cpp override) enables
+  # aggressive cache quants on Turing if needed later.
+  # Models live in ~/models/ (impermanence-persisted).
+  xdg.configFile."llama-cpp/llama-server.ini".text = ''
+    version = 1
+
+    [global]
+    host = 127.0.0.1
+    port = 8080
+    n-gpu-layers = 99
+    flash-attn = on
+    cache-type-k = q8_0
+    cache-type-v = q8_0
+    jinja = true
+    threads = -1
+    mlock = true
+
+    ; ~5GB weights @ Q4_K_M + ~3-4GB KV cache @ 32k ctx q8_0 = ~9GB — fits 11GB
+    [qwen3-8b]
+    model = /home/shuntia/models/Qwen3-8B-Q4_K_M.gguf
+    alias = qwen3-8b
+    ctx-size = 32768
+    temp = 0.7
+    top-p = 0.8
+    top-k = 20
+    min-p = 0.0
+    repeat-penalty = 1.05
+
+    ; Thinking mode: Qwen3 model card recommends different sampling when /think active
+    [qwen3-8b-think]
+    model = /home/shuntia/models/Qwen3-8B-Q4_K_M.gguf
+    alias = qwen3-8b-think
+    ctx-size = 32768
+    temp = 0.6
+    top-p = 0.95
+    top-k = 20
+    min-p = 0.0
+
+    ; ~9GB weights leaves ~2GB for KV cache on 11GB → keep ctx tight
+    [qwen3-14b]
+    model = /home/shuntia/models/Qwen3-14B-Q4_K_M.gguf
+    alias = qwen3-14b
+    ctx-size = 16384
+    temp = 0.7
+    top-p = 0.8
+    top-k = 20
+    min-p = 0.0
+    repeat-penalty = 1.05
+
+    ; MoE: active experts on GPU, FFN expert weights offloaded to system RAM.
+    ; Requires 32GB+ system RAM. Remove override-tensor to go full-GPU if VRAM allows.
+    [qwen3-coder-30b]
+    model = /home/shuntia/models/Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+    alias = qwen3-coder
+    ctx-size = 32768
+    override-tensor = .ffn_.*_exps.=CPU
+    temp = 0.7
+    top-p = 0.8
+    top-k = 20
+    min-p = 0.0
+    repeat-penalty = 1.05
+  '';
+
   # ─── Git ────────────────────────────────────────────────────────────────────
   programs.git = {
     enable   = true;
@@ -301,9 +366,9 @@
       rr  = "ritsu-server & ritsu start & disown ; disown";
 
       # remote
-      desktop    = "ssh shuntia@100.125.222.56";
-      hypr-remote    = "systemctl --user start hyprland-remote";
-      sway-headless  = "WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 sway";
+      desktop       = "ssh shuntia@100.125.222.56";
+      hypr-remote   = "systemctl --user start hyprland-remote";
+      sway-headless = "systemctl --user start sway-headless";
 
       # system update (NixOS)
       update = "sudo nixos-rebuild switch --flake ~/projects/configuration#shuntia-nix; rustup update; pnpm update -g --latest";
@@ -321,6 +386,12 @@
       lapwing   = "cat ~/shuntools/lapwing-base.txt | fzf -e";
       container = "make -C /home/shuntia/projects/seL4-CAmkES-L4v-dockerfiles user HOST_DIR=(pwd)";
 
+      # llama.cpp presets
+      llm8    = "llm qwen3-8b";
+      llm8t   = "llm qwen3-8b-think";
+      llm14   = "llm qwen3-14b";
+      llmcode = "llm qwen3-coder-30b";
+
       # sandbox shell
       sb = ''bwrap --unshare-all --unshare-user --disable-userns --share-net --hostname TIDY --clearenv --setenv PATH "/usr/local/bin:/usr/bin:/bin" --setenv HOME "/home/tidy" --setenv USER tidy --setenv LOGNAME tidy --setenv TERM "$TERM" --tmpfs /tmp --tmpfs /home --dir /home/tidy/.config --dir /home/tidy/.local --dir /home/tidy/.cache --bind /dev/null /proc/cpuinfo --tmpfs /proc/net/ --dev /dev --proc /proc --bind $PWD /home/tidy/(basename $PWD) --die-with-parent --ro-bind /bin /bin --ro-bind /usr/bin /usr/bin --ro-bind /usr/local/bin /usr/local/bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /usr/lib /usr/lib --ro-bind /etc/resolv.conf /etc/resolv.conf --ro-bind /etc/ssl /etc/ssl --ro-bind /usr/share/terminfo/ /usr/share/terminfo/ --chdir /home/tidy/(basename $PWD)'';
     };
@@ -331,12 +402,87 @@
         onEvent = "fish_prompt";
       };
       tojapan.body = ''TZ=Asia/Tokyo date -d "$argv" "+%Y-%m-%d %H:%M JST"'';
+
+      llm = {
+        description = "Launch llama-server: preset name or model substring";
+        body = ''
+          if test (count $argv) -eq 0
+            set -l choice (begin
+              grep -oE '^\[[^]]+\]' $LLAMA_CONFIG | tr -d '[]' | grep -v '^global$' | sed 's/^/[preset] /'
+              find $LLAMA_MODELS_DIR -name "*.gguf" -printf "[model]  %f\n" 2>/dev/null
+            end | fzf --prompt "llm> ")
+            test -n "$choice" ; or return 1
+            set -l kind (string split ' ' $choice)[1]
+            set -l name (string replace -r '^\S+\s+' '' $choice)
+            if test "$kind" = "[preset]"
+              llama-server --config $LLAMA_CONFIG --preset $name
+            else
+              set -l model (find $LLAMA_MODELS_DIR -name $name 2>/dev/null | head -1)
+              echo "loading $model"
+              llama-server --model $model --n-gpu-layers 99 --flash-attn on \
+                  --cache-type-k q8_0 --cache-type-v q8_0 --jinja
+            end
+            return
+          end
+          set -l query $argv[1]
+          set -e argv[1]
+          if grep -q "^\[$query\]" $LLAMA_CONFIG 2>/dev/null
+            llama-server --config $LLAMA_CONFIG --preset $query $argv
+          else
+            set -l model (find $LLAMA_MODELS_DIR -iname "*$query*.gguf" 2>/dev/null | head -1)
+            if test -z "$model"
+              echo "no preset '$query' and no model matching '*$query*.gguf' in $LLAMA_MODELS_DIR"
+              return 1
+            end
+            echo "loading $model"
+            llama-server --model $model --n-gpu-layers 99 --flash-attn on \
+                --cache-type-k q8_0 --cache-type-v q8_0 --jinja $argv
+          end
+        '';
+      };
+
+      llm-status = {
+        description = "Check llama-server health and loaded model";
+        body = ''
+          curl -fsS $LLAMA_API_BASE/models 2>/dev/null | jq -r '.data[].id' \
+              ; or echo "llama-server not reachable at $LLAMA_API_BASE"
+        '';
+      };
+
+      llm-ask = {
+        description = "Send a single prompt to the running llama-server";
+        body = ''
+          set -l prompt (string join ' ' $argv)
+          curl -fsS $LLAMA_API_BASE/chat/completions \
+              -H 'Content-Type: application/json' \
+              -d (jq -nc --arg p "$prompt" '{
+                    messages: [{role:"user", content:$p}],
+                    stream: false
+                  }') \
+              | jq -r '.choices[0].message.content'
+        '';
+      };
+
+      llm-vram = {
+        description = "Watch RTX 2080 Ti VRAM during inference";
+        body = ''
+          nvidia-smi --query-gpu=memory.used,memory.free,utilization.gpu \
+                     --format=csv -l 1
+        '';
+      };
     };
 
     shellInit = ''
       set -gx PNPM_HOME "/home/shuntia/.local/share/pnpm"
       fish_add_path $PNPM_HOME
       fish_add_path /home/shuntia/.cargo/bin
+
+      # llama.cpp
+      set -gx LLAMA_MODELS_DIR  "$HOME/models"
+      set -gx LLAMA_CONFIG      "$HOME/.config/llama-cpp/llama-server.ini"
+      set -gx LLAMA_API_BASE    "http://127.0.0.1:8080/v1"
+      set -gx LLAMA_ARG_N_GPU_LAYERS 99
+      set -gx LLAMA_ARG_FLASH_ATTN   on
     '';
 
     interactiveShellInit = ''
@@ -445,7 +591,10 @@
     gdb
 
     # ── AI / ML ───────────────────────────────────────────────────────────────
-    llama-cpp
+    # llama-cpp with CUDA + full flash-attention quant support (Turing/RTX 2080 Ti)
+    ((llama-cpp.override { cudaSupport = true; }).overrideAttrs (old: {
+      cmakeFlags = (old.cmakeFlags or []) ++ [ "-DGGML_CUDA_FA_ALL_QUANTS=ON" ];
+    }))
     lmstudio
     ollama-cuda
 
@@ -518,6 +667,33 @@
       rounding = 8
     }
   '';
+
+  xdg.configFile."sway/headless.conf".text = ''
+    output HEADLESS-1 resolution 1920x1080 position 0,0
+
+    exec ${pkgs.wayvnc}/bin/wayvnc 127.0.0.1 5900
+
+    input type:keyboard {
+      xkb_layout us
+    }
+  '';
+
+  systemd.user.services.sway-headless = {
+    Unit.Description = "Headless Sway session for remote VNC access";
+    Service = {
+      Type      = "simple";
+      Environment = [
+        "WLR_BACKENDS=headless"
+        "WLR_LIBINPUT_NO_DEVICES=1"
+        "WAYLAND_DISPLAY=wayland-remote"
+        "XDG_SESSION_TYPE=wayland"
+        "XDG_CURRENT_DESKTOP=sway"
+      ];
+      ExecStart  = "${pkgs.sway}/bin/sway -c ${config.xdg.configHome}/sway/headless.conf";
+      Restart    = "on-failure";
+      RestartSec = "3s";
+    };
+  };
 
   systemd.user.services.hyprland-remote = {
     Unit.Description = "Headless Hyprland session for remote VNC access";
