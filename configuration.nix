@@ -6,6 +6,10 @@ let
   hostname = "shuntia-nix";
   tailnet  = "tail5ec9c9.ts.net";
   tsFQDN   = "${hostname}.${tailnet}";
+  # Derived from fileSystems."/".device via systemd path-escaping rules:
+  # strip leading /, replace remaining / with -, append .device
+  rootDeviceUnit = dev:
+    lib.replaceStrings ["/"] ["-"] (lib.removePrefix "/" dev) + ".device";
 in
 {
   imports = [ ./hardware-configuration.nix ];
@@ -349,13 +353,22 @@ in
     };
   };
 
-  # ─── Impermanence: wipe @root and @home on every boot ──────────────────────
+  # ─── Impermanence ──────────────────────────────────────────────────────────
+  # @root   — snapshot + wipe on every boot (always ephemeral)
+  # @home   — snapshot + wipe only when /persist/home-wipe-flag is present
+  #           (set weekly by the schedule-home-wipe timer below)
+  # @persist — snapper handles snapshots; never wiped here
   boot.initrd.systemd.enable = true;
 
-  boot.initrd.systemd.services.wipe-root-and-home = {
-    description = "Wipe @root and @home btrfs subvolumes";
+  boot.initrd.systemd.services.wipe-root = {
+    description = "Snapshot/wipe @root every boot; @home when flag present";
     wantedBy    = [ "initrd.target" ];
     before      = [ "sysroot.mount" ];
+    # Wait for the block device before touching btrfs; without this,
+    # the mount can silently fail when DefaultDependencies=no removes
+    # the implicit After=sysinit.target that would otherwise settle udev.
+    after       = [ (rootDeviceUnit config.fileSystems."/".device) ];
+    requires    = [ (rootDeviceUnit config.fileSystems."/".device) ];
     unitConfig.DefaultDependencies = "no";
     serviceConfig.Type = "oneshot";
     script =
@@ -367,6 +380,7 @@ in
         date   = "${pkgs.coreutils}/bin/date";
         ls     = "${pkgs.coreutils}/bin/ls";
         mkdir  = "${pkgs.coreutils}/bin/mkdir";
+        rm     = "${pkgs.coreutils}/bin/rm";
       in
       ''
         ${mkdir} -p /btrfs_tmp
@@ -374,25 +388,64 @@ in
 
         TIMESTAMP=$(${date} +%Y%m%dT%H%M%S)
 
+        # Delete btrfs subvolumes nested under $1 (e.g. snapper .snapshots).
+        # Must happen before deleting the parent subvolume.
+        delete_nested() {
+          ${btrfs} subvolume list /btrfs_tmp \
+            | grep " path $1/" \
+            | awk '{print $NF}' \
+            | sort -r \
+            | while IFS= read -r nested; do
+                ${btrfs} subvolume delete "/btrfs_tmp/$nested" 2>/dev/null || true
+              done || true
+        }
+
         snapshot_and_wipe() {
-          local subvol="$1"
+          local subvol=$1
+          delete_nested "$subvol"
           if [ -e "/btrfs_tmp/$subvol" ]; then
-            ${btrfs} subvolume snapshot -r "/btrfs_tmp/$subvol" "/btrfs_tmp/$subvol-$TIMESTAMP" || true
-            ${btrfs} subvolume delete "/btrfs_tmp/$subvol"
+            ${btrfs} subvolume snapshot -r "/btrfs_tmp/$subvol" \
+              "/btrfs_tmp/$subvol-$TIMESTAMP" || true
+            # If delete fails, bail out so create is never attempted on an
+            # existing subvolume (which would also fail and leave things broken).
+            ${btrfs} subvolume delete "/btrfs_tmp/$subvol" || return 1
           fi
           ${btrfs} subvolume create "/btrfs_tmp/$subvol"
         }
 
+        # Always wipe @root
         snapshot_and_wipe @root
-        snapshot_and_wipe @home
+        ${ls} -d /btrfs_tmp/@root-* 2>/dev/null | sort | head -n -3 | \
+          while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done || true
 
-        for prefix in @root @home; do
-          ${ls} -d /btrfs_tmp/"$prefix"-* 2>/dev/null | sort | head -n -3 | \
-            while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done
-        done
+        # Wipe @home only on scheduled boots; only clear the flag on success so
+        # a failed wipe is automatically retried on the next boot.
+        if [ -f "/btrfs_tmp/@persist/home-wipe-flag" ]; then
+          if snapshot_and_wipe @home; then
+            ${rm} -f "/btrfs_tmp/@persist/home-wipe-flag"
+            ${ls} -d /btrfs_tmp/@home-* 2>/dev/null | sort | head -n -5 | \
+              while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done || true
+          fi
+        fi
 
         ${umount} /btrfs_tmp
       '';
+  };
+
+  # Set the @home-wipe flag weekly; initrd picks it up on the next boot.
+  systemd.services.schedule-home-wipe = {
+    description = "Schedule @home wipe on next boot";
+    serviceConfig = {
+      Type      = "oneshot";
+      ExecStart = "${pkgs.coreutils}/bin/touch /persist/home-wipe-flag";
+    };
+  };
+  systemd.timers.schedule-home-wipe = {
+    wantedBy    = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "weekly";
+      Persistent = true;
+    };
   };
 
   fileSystems."/persist".neededForBoot = true;
