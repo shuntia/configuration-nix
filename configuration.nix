@@ -404,8 +404,9 @@ in
           local subvol=$1
           delete_nested "$subvol"
           if [ -e "/btrfs_tmp/$subvol" ]; then
+            ${mkdir} -p "/btrfs_tmp/$subvol.snap"
             ${btrfs} subvolume snapshot -r "/btrfs_tmp/$subvol" \
-              "/btrfs_tmp/$subvol-$TIMESTAMP" || true
+              "/btrfs_tmp/$subvol.snap/$TIMESTAMP" || true
             # If delete fails, bail out so create is never attempted on an
             # existing subvolume (which would also fail and leave things broken).
             ${btrfs} subvolume delete "/btrfs_tmp/$subvol" || return 1
@@ -413,9 +414,16 @@ in
           ${btrfs} subvolume create "/btrfs_tmp/$subvol"
         }
 
+        # Snapshot @persist at every boot (no wipe).
+        ${mkdir} -p /btrfs_tmp/@persist.snap
+        ${btrfs} subvolume snapshot -r /btrfs_tmp/@persist \
+          /btrfs_tmp/@persist.snap/$TIMESTAMP || true
+        ${ls} -d /btrfs_tmp/@persist.snap/* 2>/dev/null | sort | head -n -5 | \
+          while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done || true
+
         # Always wipe @root
         snapshot_and_wipe @root
-        ${ls} -d /btrfs_tmp/@root-* 2>/dev/null | sort | head -n -3 | \
+        ${ls} -d /btrfs_tmp/@root.snap/* 2>/dev/null | sort | head -n -3 | \
           while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done || true
 
         # Wipe @home only on scheduled boots; only clear the flag on success so
@@ -423,7 +431,7 @@ in
         if [ -f "/btrfs_tmp/@persist/home-wipe-flag" ]; then
           if snapshot_and_wipe @home; then
             ${rm} -f "/btrfs_tmp/@persist/home-wipe-flag"
-            ${ls} -d /btrfs_tmp/@home-* 2>/dev/null | sort | head -n -5 | \
+            ${ls} -d /btrfs_tmp/@home.snap/* 2>/dev/null | sort | head -n -5 | \
               while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done || true
           fi
         fi
