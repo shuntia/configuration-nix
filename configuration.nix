@@ -47,22 +47,96 @@ in
   services.fstrim.enable = true;
   services.smartd   = { enable = true; autodetect = true; };
 
-  # ─── Snapshots (snapper) ────────────────────────────────────────────────────
-  # Snapshots /persist (user data). Root rollback is handled by NixOS generations.
-  # First run after rebuild: sudo snapper -c persist create-config /persist
-  services.snapper = {
-    snapshotInterval = "hourly";
-    cleanupInterval  = "1d";
-    configs.persist = {
-      SUBVOLUME          = "/persist";
-      ALLOW_USERS        = [ user ];
-      TIMELINE_CREATE    = true;
-      TIMELINE_CLEANUP   = true;
-      TIMELINE_LIMIT_HOURLY  = "10";
-      TIMELINE_LIMIT_DAILY   = "7";
-      TIMELINE_LIMIT_WEEKLY  = "4";
-      TIMELINE_LIMIT_MONTHLY = "3";
-      TIMELINE_LIMIT_YEARLY  = "0";
+  # ─── Snapshots ─────────────────────────────────────────────────────────────
+  # Hourly read-only snapshots of all btrfs subvolumes with tiered retention
+  # (10 hourly, 7 daily, 4 weekly, 3 monthly). Boot-time snapshots are taken
+  # by the initrd wipe-root service and stored in the same .snap/ directories.
+  systemd.services.btrfs-snapshot = {
+    description = "Periodic btrfs snapshots of all subvolumes";
+    serviceConfig.Type = "oneshot";
+    script =
+      let
+        device = config.fileSystems."/".device;
+        btrfs  = "${pkgs.btrfs-progs}/bin/btrfs";
+        mount  = "${pkgs.util-linux}/bin/mount";
+        umount = "${pkgs.util-linux}/bin/umount";
+        date   = "${pkgs.coreutils}/bin/date";
+        ls     = "${pkgs.coreutils}/bin/ls";
+        mkdir  = "${pkgs.coreutils}/bin/mkdir";
+        awk    = "${pkgs.gawk}/bin/awk";
+      in
+      ''
+        MNT=/run/btrfs-snap
+        ${mkdir} -p "$MNT"
+        ${mount} -o subvol=/ ${device} "$MNT"
+        trap "${umount} $MNT 2>/dev/null || true" EXIT
+
+        TIMESTAMP=$(${date} +%Y%m%dT%H%M%S)
+
+        # Returns 0 only if the snapshot was created and verified by btrfs.
+        snap_subvol() {
+          local sv="$1"
+          local target="$MNT/$sv.snap/$TIMESTAMP"
+          ${mkdir} -p "$MNT/$sv.snap"
+          ${btrfs} subvolume snapshot -r "$MNT/$sv" "$target" \
+            && ${btrfs} subvolume show "$target" > /dev/null 2>&1
+        }
+
+        # Tiered pruning: keep 10 hourly, 7 daily, 4 weekly, 3 monthly.
+        # Snapshot names must be YYYYMMDDTHHMMSS.
+        tiered_prune() {
+          local snap_dir="$1"
+          local snaps
+          snaps=$(${ls} -1d "$snap_dir"/[0-9]* 2>/dev/null | sort -r) || return 0
+          [ -z "$snaps" ] && return 0
+
+          # Annotate each path with its ISO week key (requires date for week calc).
+          local annotated
+          annotated=$(echo "$snaps" | while IFS= read -r s; do
+            local b="''${s##*/}"
+            local wk
+            wk=$(${date} -d "''${b:0:4}-''${b:4:2}-''${b:6:2}" +%Y%W 2>/dev/null \
+                 || echo "''${b:0:6}X")
+            echo "$s $wk"
+          done)
+
+          local keep
+          keep=$(echo "$annotated" | ${awk} '
+            { path=$1; wk=$2
+              n=split(path,a,"/"); base=a[n]
+              h=substr(base,1,11); d=substr(base,1,8); m=substr(base,1,6)
+              if      (!(h  in H) && length(H)<10) { H[h]=1;  print path; next }
+              else if (!(d  in D) && length(D)<7)  { D[d]=1;  print path; next }
+              else if (!(wk in W) && length(W)<4)  { W[wk]=1; print path; next }
+              else if (!(m  in M) && length(M)<3)  { M[m]=1;  print path; next }
+            }
+          ')
+
+          # Bail out rather than deleting everything if the keep set is empty.
+          [ -z "$keep" ] && return 1
+
+          echo "$snaps" | while IFS= read -r snap; do
+            case "
+$keep
+" in
+              *"
+$snap
+"*) ;;
+              *) ${btrfs} subvolume delete "$snap" 2>/dev/null || true ;;
+            esac
+          done
+        }
+
+        snap_subvol @root    && tiered_prune "$MNT/@root.snap"
+        snap_subvol @home    && tiered_prune "$MNT/@home.snap"
+        snap_subvol @persist && tiered_prune "$MNT/@persist.snap"
+      '';
+  };
+  systemd.timers.btrfs-snapshot = {
+    wantedBy    = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "hourly";
+      Persistent = true;
     };
   };
 
@@ -357,7 +431,7 @@ in
   # @root   — snapshot + wipe on every boot (always ephemeral)
   # @home   — snapshot + wipe only when /persist/home-wipe-flag is present
   #           (set weekly by the schedule-home-wipe timer below)
-  # @persist — snapper handles snapshots; never wiped here
+  # @persist — btrfs-snapshot timer handles snapshots; never wiped here
   boot.initrd.systemd.enable = true;
 
   boot.initrd.systemd.services.wipe-root = {
@@ -388,8 +462,7 @@ in
 
         TIMESTAMP=$(${date} +%Y%m%dT%H%M%S)
 
-        # Delete btrfs subvolumes nested under $1 (e.g. snapper .snapshots).
-        # Must happen before deleting the parent subvolume.
+        # Delete btrfs subvolumes nested under $1 before deleting the parent.
         delete_nested() {
           ${btrfs} subvolume list /btrfs_tmp \
             | grep " path $1/" \
@@ -414,12 +487,10 @@ in
           ${btrfs} subvolume create "/btrfs_tmp/$subvol"
         }
 
-        # Snapshot @persist at every boot (no wipe).
+        # Snapshot @persist at every boot (no wipe); pruning handled by btrfs-snapshot timer.
         ${mkdir} -p /btrfs_tmp/@persist.snap
         ${btrfs} subvolume snapshot -r /btrfs_tmp/@persist \
           /btrfs_tmp/@persist.snap/$TIMESTAMP || true
-        ${ls} -d /btrfs_tmp/@persist.snap/* 2>/dev/null | sort | head -n -5 | \
-          while IFS= read -r snap; do ${btrfs} subvolume delete "$snap"; done || true
 
         # Always wipe @root
         snapshot_and_wipe @root
