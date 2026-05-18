@@ -413,7 +413,7 @@
             end | fzf --prompt "llm> ")
             test -n "$choice" ; or return 1
             set -l kind (string split ' ' $choice)[1]
-            set -l name (string replace -r '^\S+\s+' '' $choice)
+            set -l name (string replace -r '^\S+\s+' ''' $choice)
             if test "$kind" = "[preset]"
               llama-server --config $LLAMA_CONFIG --preset $name
             else
