@@ -139,7 +139,7 @@ in
   services.tailscale.enable = true;
 
   # ─── Power / performance ────────────────────────────────────────────────────
-  services.logind.extraConfig = "IdleAction=ignore";
+  services.logind.settings.Login.IdleAction = "ignore";
   services.irqbalance.enable = true;
   boot.kernel.sysctl = {
     "vm.swappiness"         = 10;
