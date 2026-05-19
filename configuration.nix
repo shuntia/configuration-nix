@@ -679,6 +679,7 @@ $snap
         "/etc/NetworkManager/system-connections"
         "/var/lib/docker"
         "/var/lib/libvirt"
+        "/var/lib/llama"
       ];
       files = [
         "/etc/machine-id"

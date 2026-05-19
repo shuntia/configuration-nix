@@ -15,10 +15,13 @@
   # RTX 2080 Ti (Turing, CC 7.5, 11GB VRAM). Flash-attn on for q8_0 KV cache.
   # GGML_CUDA_FA_ALL_QUANTS=ON (compiled in llama-cpp override) enables
   # aggressive cache quants on Turing if needed later.
-  # Models live in ~/models/ (impermanence-persisted).
+  # Models live in /var/lib/llama/models.
   xdg.configFile."llama-cpp/llama-server.ini".text = ''
     version = 1
 
+    ; ============================================================
+    ; Global defaults — apply to every preset unless overridden
+    ; ============================================================
     [global]
     host = 127.0.0.1
     port = 8080
@@ -29,10 +32,15 @@
     jinja = true
     threads = -1
     mlock = true
+    ; --no-webui if you don't want the built-in chat UI on :8080
+    ; no-webui = true
 
-    ; ~5GB weights @ Q4_K_M + ~3-4GB KV cache @ 32k ctx q8_0 = ~9GB — fits 11GB
+    ; ============================================================
+    ; Qwen3 8B — daily driver. Tool calling + long context.
+    ; ~5GB weights @ Q4_K_M + ~3-4GB KV cache @ 32k ctx q8_0
+    ; ============================================================
     [qwen3-8b]
-    model = /home/shuntia/models/Qwen3-8B-Q4_K_M.gguf
+    model = /var/lib/llama/models/Qwen3-8B-Q4_K_M.gguf
     alias = qwen3-8b
     ctx-size = 32768
     temp = 0.7
@@ -41,9 +49,10 @@
     min-p = 0.0
     repeat-penalty = 1.05
 
-    ; Thinking mode: Qwen3 model card recommends different sampling when /think active
+    ; Same model, thinking mode tuning (Qwen3 model card recommends
+    ; different sampling when /think is active).
     [qwen3-8b-think]
-    model = /home/shuntia/models/Qwen3-8B-Q4_K_M.gguf
+    model = /var/lib/llama/models/Qwen3-8B-Q4_K_M.gguf
     alias = qwen3-8b-think
     ctx-size = 32768
     temp = 0.6
@@ -51,9 +60,12 @@
     top-k = 20
     min-p = 0.0
 
-    ; ~9GB weights leaves ~2GB for KV cache on 11GB → keep ctx tight
+    ; ============================================================
+    ; Qwen3 14B — better quality, tighter context budget.
+    ; ~9GB weights leaves ~2-3GB for cache → ~16k usable ctx.
+    ; ============================================================
     [qwen3-14b]
-    model = /home/shuntia/models/Qwen3-14B-Q4_K_M.gguf
+    model = /var/lib/llama/models/Qwen3-14B-Q4_K_M.gguf
     alias = qwen3-14b
     ctx-size = 16384
     temp = 0.7
@@ -62,10 +74,13 @@
     min-p = 0.0
     repeat-penalty = 1.05
 
-    ; MoE: active experts on GPU, FFN expert weights offloaded to system RAM.
-    ; Requires 32GB+ system RAM. Remove override-tensor to go full-GPU if VRAM allows.
+    ; ============================================================
+    ; Qwen3-Coder 30B-A3B (MoE) — only active experts on GPU,
+    ; the rest offloaded to system RAM. Needs 32GB+ system RAM.
+    ; Use --override-tensor regex to push MoE FFN layers to CPU.
+    ; ============================================================
     [qwen3-coder-30b]
-    model = /home/shuntia/models/Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+    model = /var/lib/llama/models/Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
     alias = qwen3-coder
     ctx-size = 32768
     override-tensor = .ffn_.*_exps.=CPU
@@ -403,87 +418,67 @@
       };
       tojapan.body = ''TZ=Asia/Tokyo date -d "$argv" "+%Y-%m-%d %H:%M JST"'';
 
-      llm = {
-        description = "Launch llama-server: preset name or model substring";
-        body = ''
-          if test (count $argv) -eq 0
-            set -l choice (begin
-              grep -oE '^\[[^]]+\]' $LLAMA_CONFIG | tr -d '[]' | grep -v '^global$' | sed 's/^/[preset] /'
-              find $LLAMA_MODELS_DIR -name "*.gguf" -printf "[model]  %f\n" 2>/dev/null
-            end | fzf --prompt "llm> ")
-            test -n "$choice" ; or return 1
-            set -l kind (string split ' ' $choice)[1]
-            set -l name (string replace -r '^\S+\s+' ''' $choice)
-            if test "$kind" = "[preset]"
-              llama-server --config $LLAMA_CONFIG --preset $name
-            else
-              set -l model (find $LLAMA_MODELS_DIR -name $name 2>/dev/null | head -1)
-              echo "loading $model"
-              llama-server --model $model --n-gpu-layers 99 --flash-attn on \
-                  --cache-type-k q8_0 --cache-type-v q8_0 --jinja
-            end
-            return
-          end
-          set -l query $argv[1]
-          set -e argv[1]
-          if grep -q "^\[$query\]" $LLAMA_CONFIG 2>/dev/null
-            llama-server --config $LLAMA_CONFIG --preset $query $argv
-          else
-            set -l model (find $LLAMA_MODELS_DIR -iname "*$query*.gguf" 2>/dev/null | head -1)
-            if test -z "$model"
-              echo "no preset '$query' and no model matching '*$query*.gguf' in $LLAMA_MODELS_DIR"
-              return 1
-            end
-            echo "loading $model"
-            llama-server --model $model --n-gpu-layers 99 --flash-attn on \
-                --cache-type-k q8_0 --cache-type-v q8_0 --jinja $argv
-          end
-        '';
-      };
-
-      llm-status = {
-        description = "Check llama-server health and loaded model";
-        body = ''
-          curl -fsS $LLAMA_API_BASE/models 2>/dev/null | jq -r '.data[].id' \
-              ; or echo "llama-server not reachable at $LLAMA_API_BASE"
-        '';
-      };
-
-      llm-ask = {
-        description = "Send a single prompt to the running llama-server";
-        body = ''
-          set -l prompt (string join ' ' $argv)
-          curl -fsS $LLAMA_API_BASE/chat/completions \
-              -H 'Content-Type: application/json' \
-              -d (jq -nc --arg p "$prompt" '{
-                    messages: [{role:"user", content:$p}],
-                    stream: false
-                  }') \
-              | jq -r '.choices[0].message.content'
-        '';
-      };
-
-      llm-vram = {
-        description = "Watch RTX 2080 Ti VRAM during inference";
-        body = ''
-          nvidia-smi --query-gpu=memory.used,memory.free,utilization.gpu \
-                     --format=csv -l 1
-        '';
-      };
+    llm = {
+      description = "Launch llama-server with a named preset";
+      body = ''
+        if test (count $argv) -eq 0
+          echo "usage: llm <preset> [extra llama-server args...]"
+          echo "presets in $LLAMA_CONFIG:"
+          grep -oE '^\[[^]]+\]' $LLAMA_CONFIG | tr -d '[]' | grep -v '^global$'
+          return 1
+        end
+        set -l preset $argv[1]
+        set -e argv[1]
+        llama-server --config $LLAMA_CONFIG --preset $preset $argv
+      '';
     };
 
-    shellInit = ''
-      set -gx PNPM_HOME "/home/shuntia/.local/share/pnpm"
-      fish_add_path $PNPM_HOME
-      fish_add_path /home/shuntia/.cargo/bin
+    llm-status = {
+      description = "Check llama-server health";
+      body = ''
+        curl -fsS $LLAMA_API_BASE/models 2>/dev/null | jq -r '.data[].id' \
+            ; or echo "llama-server not reachable at $LLAMA_API_BASE"
+      '';
+    };
 
-      # llama.cpp
-      set -gx LLAMA_MODELS_DIR  "$HOME/models"
-      set -gx LLAMA_CONFIG      "$HOME/.config/llama-cpp/llama-server.ini"
-      set -gx LLAMA_API_BASE    "http://127.0.0.1:8080/v1"
-      set -gx LLAMA_ARG_N_GPU_LAYERS 99
-      set -gx LLAMA_ARG_FLASH_ATTN   on
-    '';
+    llm-ask = {
+      description = "Send a single prompt to the loaded model";
+      body = ''
+        set -l prompt (string join ' ' $argv)
+        curl -fsS $LLAMA_API_BASE/chat/completions \
+            -H 'Content-Type: application/json' \
+            -d (jq -nc --arg p "$prompt" '{
+                  messages: [{role:"user", content:$p}],
+                  stream: false
+                }') \
+            | jq -r '.choices[0].message.content'
+      '';
+    };
+
+    llm-vram = {
+      description = "Watch GPU VRAM during inference";
+      body = ''
+        nvidia-smi --query-gpu=memory.used,memory.free,utilization.gpu \
+                   --format=csv -l 1
+      '';
+    };
+    };
+
+  shellInit = ''
+    set -gx PNPM_HOME "/home/shuntia/.local/share/pnpm"
+    fish_add_path $PNPM_HOME
+    fish_add_path /home/shuntia/.cargo/bin
+
+    # ─── llama.cpp environment ─────────────────────────────────────────
+    set -gx LLAMA_MODELS_DIR /var/lib/llama/models
+    set -gx LLAMA_CONFIG     $HOME/.config/llama-cpp/llama-server.ini
+    set -gx LLAMA_API_BASE   http://127.0.0.1:8080/v1
+
+    # llama.cpp also reads env vars in the LLAMA_ARG_* namespace; these
+    # are ignored when --config is used but useful for one-off llama-cli.
+    set -gx LLAMA_ARG_N_GPU_LAYERS 99
+    set -gx LLAMA_ARG_FLASH_ATTN   on
+  '';
 
     interactiveShellInit = ''
       cat ~/.local/state/caelestia/sequences.txt 2>/dev/null
