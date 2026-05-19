@@ -339,12 +339,13 @@ $snap
         ];
       });
       settings.global = {
-        server_name        = cfDomain;
-        address            = [ "127.0.0.1" ];
-        port               = [ 6167 ];
-        allow_registration = true;
-        allow_federation   = false;
-        yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
+        server_name              = cfDomain;
+        address                  = [ "127.0.0.1" ];
+        port                     = [ 6167 ];
+        allow_registration       = true;
+        registration_token_file  = "/persist/secrets/matrix-registration-token";
+        allow_federation         = false;
+        yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = false;
       };
     };
 
