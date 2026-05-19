@@ -361,13 +361,21 @@ $snap
         };
       };
     };
-    # DynamicUser creates /var/lib/private (mode 0700) and symlinks
-    # /var/lib/tuwunel -> /var/lib/private/tuwunel inside the service namespace.
-    # BindPaths overlays the persist directory onto that resolved path so data
-    # survives reboots without letting impermanence touch /var/lib/private
-    # (which would recreate it at 0755 and break DynamicUser setup).
-    systemd.services.tuwunel.serviceConfig.BindPaths =
-      [ "/persist/tuwunel:/var/lib/tuwunel" ];
+    # tuwunel uses DynamicUser=true + PrivateUsers=true.
+    # PrivateUsers maps root→nobody inside the service namespace, so a plain
+    # root-owned bind mount would be unwritable. ExecStartPre runs as root
+    # ('+' prefix) after the dynamic user is allocated, so chown works and
+    # the service can write to the bind-mounted persist dir.
+    systemd.services.tuwunel.serviceConfig = {
+      ExecStartPre = let
+        setup = pkgs.writeShellScript "tuwunel-persist-setup" ''
+          mkdir -p /persist/tuwunel
+          chown tuwunel:tuwunel /persist/tuwunel
+          chmod 0700 /persist/tuwunel
+        '';
+      in [ "+${setup}" ];
+      BindPaths = [ "/persist/tuwunel:/var/lib/tuwunel" ];
+    };
 
     systemd.services.nginx.after = [ "tailscale-cert.service" ];
     systemd.services.nginx.wants = [ "tailscale-cert.service" ];
@@ -717,6 +725,14 @@ $snap
     ];
 
     nixpkgs.config.allowUnfree = true;
+
+    # ─── Tmpfiles ───────────────────────────────────────────────────────────────
+    # systemd requires /var/lib/private to be 0700 for DynamicUser services.
+    # Enforce this explicitly so any leftover 0755 from a previous impermanence
+    # bind-mount setup is corrected on every switch/boot.
+    systemd.tmpfiles.rules = [
+      "d /var/lib/private 0700 root root -"
+    ];
 
     # ─── Nix settings ───────────────────────────────────────────────────────────
     nix.settings = {
