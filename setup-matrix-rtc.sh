@@ -88,8 +88,7 @@ log "Checking cloudflared tunnels"
 check_tunnel
 
 if run sudo test -e "${ENV_FILE}" || run sudo test -e "${LIVEKIT_FILE}"; then
-  echo "Refusing to overwrite existing files in ${SECRETS_DIR}." >&2
-  exit 1
+  log "Existing secrets found; overwriting."
 fi
 
 run sudo mkdir -p "${SECRETS_DIR}"
