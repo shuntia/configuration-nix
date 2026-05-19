@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 IFS=$'\n\t'
+
+PS4='+ [${BASH_SOURCE}:${LINENO}] '
+BASH_XTRACEFD=2
+set -x
 
 CF_DOMAIN="${CF_DOMAIN:-uwu.shuntia.net}"
 RTC_DOMAIN="${RTC_DOMAIN:-matrix-rtc.${CF_DOMAIN}}"
@@ -9,6 +13,17 @@ TUNNEL_NAME="${TUNNEL_NAME:-main}"
 SECRETS_DIR="/persist/secrets"
 ENV_FILE="${SECRETS_DIR}/matrix-rtc.env"
 LIVEKIT_FILE="${SECRETS_DIR}/livekit.yaml"
+
+log() {
+  echo ">> $*" >&2
+}
+
+run() {
+  log "$*"
+  "$@"
+}
+
+trap 'echo "Error on line ${LINENO}: ${BASH_COMMAND} (exit $?)." >&2' ERR
 
 require_cmd() {
   local cmd="$1"
@@ -32,16 +47,20 @@ if [[ "${EUID}" -eq 0 ]]; then
   exit 1
 fi
 
+log "Using CF_DOMAIN=${CF_DOMAIN}"
+log "Using RTC_DOMAIN=${RTC_DOMAIN}"
+log "Using TUNNEL_NAME=${TUNNEL_NAME}"
+
 require_cmd sudo
 require_cmd cloudflared
 
-if sudo test -e "${ENV_FILE}" || sudo test -e "${LIVEKIT_FILE}"; then
+if run sudo test -e "${ENV_FILE}" || run sudo test -e "${LIVEKIT_FILE}"; then
   echo "Refusing to overwrite existing files in ${SECRETS_DIR}." >&2
   exit 1
 fi
 
-sudo mkdir -p "${SECRETS_DIR}"
-sudo chmod 0700 "${SECRETS_DIR}"
+run sudo mkdir -p "${SECRETS_DIR}"
+run sudo chmod 0700 "${SECRETS_DIR}"
 
 LIVEKIT_KEY="$(gen_alnum 20)"
 LIVEKIT_SECRET="$(gen_alnum 64)"
@@ -53,6 +72,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+log "Writing temporary secrets files"
 cat > "${tmp_env}" <<EOF
 LIVEKIT_KEY=${LIVEKIT_KEY}
 LIVEKIT_SECRET=${LIVEKIT_SECRET}
@@ -72,11 +92,11 @@ keys:
   ${LIVEKIT_KEY}: ${LIVEKIT_SECRET}
 EOF
 
-sudo mv "${tmp_env}" "${ENV_FILE}"
-sudo mv "${tmp_livekit}" "${LIVEKIT_FILE}"
-sudo chmod 600 "${ENV_FILE}" "${LIVEKIT_FILE}"
+run sudo mv "${tmp_env}" "${ENV_FILE}"
+run sudo mv "${tmp_livekit}" "${LIVEKIT_FILE}"
+run sudo chmod 600 "${ENV_FILE}" "${LIVEKIT_FILE}"
 trap - EXIT
 
-cloudflared tunnel route dns "${TUNNEL_NAME}" "${RTC_DOMAIN}"
+run cloudflared tunnel route dns "${TUNNEL_NAME}" "${RTC_DOMAIN}"
 
 echo "Created ${ENV_FILE} and ${LIVEKIT_FILE} and routed ${RTC_DOMAIN} to tunnel ${TUNNEL_NAME}."
