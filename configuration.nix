@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 
 let
   user     = "shuntia";
@@ -8,6 +8,12 @@ let
   tsFQDN   = "${hostname}.${tailnet}";
   # Public-facing hostname (served via Cloudflare tunnel)
   cfDomain = "uwu.shuntia.net";
+  rtcDomain = "matrix-rtc.${cfDomain}";
+  rtcProxyPort = 8181;
+  pkgsUnstable = import inputs.nixpkgs-unstable {
+    system = pkgs.system;
+    config = config.nixpkgs.config;
+  };
   # Derived from fileSystems."/".device via systemd path-escaping rules:
   # strip leading /, replace remaining / with -, append .device
   rootDeviceUnit = dev:
@@ -176,6 +182,10 @@ $snap
       # Globally reachable
       allowedTCPPorts = [
         22    # SSH
+        7881  # MatrixRTC Livekit TCP
+      ];
+      allowedUDPPortRanges = [
+        { from = 50100; to = 50200; } # MatrixRTC Livekit UDP range
       ];
       trustedInterfaces = [ "tailscale0" ];
       # LAN-only ports: RFC1918 (IPv4) + LAN prefix (IPv6)
@@ -245,6 +255,8 @@ $snap
         ingress = {
           # Matrix homeserver
           ${cfDomain} = { service = "http://127.0.0.1:6167"; };
+          # MatrixRTC (Livekit + JWT service)
+          ${rtcDomain} = { service = "http://127.0.0.1:${toString rtcProxyPort}"; };
           # Add further hostname = { service = "..."; }; entries here
         };
         default = "http_status:404";
@@ -264,6 +276,30 @@ $snap
       enable           = true;
       enableOnBoot     = false;
       autoPrune.enable = true;
+    };
+    # ─── MatrixRTC (Livekit + JWT service) ──────────────────────────────────────
+    virtualisation.oci-containers = {
+      backend = "docker";
+      containers = {
+        matrix-rtc-jwt = {
+          image = "ghcr.io/element-hq/lk-jwt-service:latest";
+          autoStart = true;
+          environment = {
+            LIVEKIT_JWT_BIND = ":8081";
+            LIVEKIT_URL = "wss://${rtcDomain}";
+            LIVEKIT_FULL_ACCESS_HOMESERVERS = cfDomain;
+          };
+          environmentFiles = [ "/persist/secrets/matrix-rtc.env" ]; # LIVEKIT_KEY/LIVEKIT_SECRET
+          ports = [ "127.0.0.1:8081:8081" ];
+        };
+        matrix-rtc-livekit = {
+          image = "livekit/livekit-server:latest";
+          autoStart = true;
+          cmd = [ "--config" "/etc/livekit.yaml" ];
+          volumes = [ "/persist/secrets/livekit.yaml:/etc/livekit.yaml:ro" ];
+          extraOptions = [ "--network=host" ];
+        };
+      };
     };
 
     # ─── QEMU / KVM ─────────────────────────────────────────────────────────────
@@ -328,15 +364,15 @@ $snap
     programs.gamemode.enable = true;
 
     # ─── Tuwunel (Matrix homeserver) ────────────────────────────────────────────
-    # tuwunel v1.6.1 has a bug where FallbackAcknowledgement (used by some
+    # tuwunel <1.6.2 has a bug where FallbackAcknowledgement (used by some
     # clients during dummy UIA) incorrectly requires SSO completion, causing
-    # M_FORBIDDEN on registration. Patched with upstream fix (fda799a).
+    # M_FORBIDDEN on registration. Patch only applies for older versions.
     services.matrix-tuwunel = {
       enable = true;
-      package = pkgs.matrix-tuwunel.overrideAttrs (old: {
-        patches = (old.patches or []) ++ [
-          ./fix-uiaa-fallback-ack.patch
-        ];
+      package = pkgsUnstable.matrix-tuwunel.overrideAttrs (old: {
+        patches = (old.patches or []) ++ lib.optional
+          (lib.versionOlder old.version "1.6.2")
+          ./fix-uiaa-fallback-ack.patch;
       });
       settings.global = {
         server_name              = cfDomain;
@@ -346,6 +382,9 @@ $snap
         registration_token_file  = "/var/lib/tuwunel/registration-token";
         allow_federation         = false;
         yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = false;
+        well_known = {
+          livekit_url = "https://${rtcDomain}";
+        };
       };
     };
 
@@ -362,12 +401,28 @@ $snap
           extraConfig = ''
             add_header Content-Type application/json;
             add_header Access-Control-Allow-Origin *;
-            return 200 '{"m.homeserver":{"base_url":"https://${cfDomain}"}}';
+            return 200 '{"m.homeserver":{"base_url":"https://${cfDomain}"},"org.matrix.msc4143.rtc_foci":[{"type":"livekit","livekit_service_url":"https://${rtcDomain}"}]}';
           '';
         };
         locations."/" = {
           proxyPass       = "http://127.0.0.1:6167";
           proxyWebsockets = true;
+        };
+      };
+      virtualHosts.${rtcDomain} = {
+        listen = [
+          { addr = "127.0.0.1"; port = rtcProxyPort; }
+        ];
+        locations."~ ^/(sfu/get|healthz|get_token)" = {
+          proxyPass = "http://127.0.0.1:8081";
+        };
+        locations."/" = {
+          proxyPass       = "http://127.0.0.1:7880";
+          proxyWebsockets = true;
+          extraConfig = ''
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+          '';
         };
       };
     };
