@@ -8,7 +8,7 @@ set -x
 
 CF_DOMAIN="${CF_DOMAIN:-uwu.shuntia.net}"
 RTC_DOMAIN="${RTC_DOMAIN:-matrix-rtc.${CF_DOMAIN}}"
-TUNNEL_NAME="${TUNNEL_NAME:-main}"
+TUNNEL_NAME="${TUNNEL_NAME:-}"
 
 SECRETS_DIR="/persist/secrets"
 ENV_FILE="${SECRETS_DIR}/matrix-rtc.env"
@@ -55,6 +55,16 @@ check_tunnel() {
     echo "Failed to list tunnels. Are you logged in with cloudflared?" >&2
     return 1
   fi
+  if [[ -z "${TUNNEL_NAME}" ]]; then
+    TUNNEL_NAME="$(echo "$list" | awk 'NR==2 {print $2}')"
+    if [[ -z "${TUNNEL_NAME}" || "$(echo "$list" | awk 'NR>1 {c++} END {print c+0}')" -ne 1 ]]; then
+      echo "Multiple tunnels found. Set TUNNEL_NAME to one of:" >&2
+      echo "$list" >&2
+      return 1
+    fi
+    log "Auto-selected tunnel: ${TUNNEL_NAME}"
+    return 0
+  fi
   if echo "$list" | awk -v t="${TUNNEL_NAME}" 'NR>1 { if ($1==t || $2==t) found=1 } END { exit !found }'; then
     return 0
   fi
@@ -70,7 +80,7 @@ fi
 
 log "Using CF_DOMAIN=${CF_DOMAIN}"
 log "Using RTC_DOMAIN=${RTC_DOMAIN}"
-log "Using TUNNEL_NAME=${TUNNEL_NAME}"
+log "Using TUNNEL_NAME=${TUNNEL_NAME:-<auto>}"
 
 require_cmd sudo
 require_cmd cloudflared
