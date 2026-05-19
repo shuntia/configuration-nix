@@ -56,8 +56,8 @@ check_tunnel() {
     return 1
   fi
   if [[ -z "${TUNNEL_NAME}" ]]; then
-    TUNNEL_NAME="$(echo "$list" | awk 'NR==2 {print $2}')"
-    if [[ -z "${TUNNEL_NAME}" || "$(echo "$list" | awk 'NR>1 {c++} END {print c+0}')" -ne 1 ]]; then
+    TUNNEL_NAME="$(echo "$list" | awk '$1 ~ /^[0-9a-fA-F-]{36}$/ {print $2; exit}')"
+    if [[ -z "${TUNNEL_NAME}" || "$(echo "$list" | awk '$1 ~ /^[0-9a-fA-F-]{36}$/ {c++} END {print c+0}')" -ne 1 ]]; then
       echo "Multiple tunnels found. Set TUNNEL_NAME to one of:" >&2
       echo "$list" >&2
       return 1
@@ -65,7 +65,7 @@ check_tunnel() {
     log "Auto-selected tunnel: ${TUNNEL_NAME}"
     return 0
   fi
-  if echo "$list" | awk -v t="${TUNNEL_NAME}" 'NR>1 { if ($1==t || $2==t) found=1 } END { exit !found }'; then
+  if echo "$list" | awk -v t="${TUNNEL_NAME}" '$1 ~ /^[0-9a-fA-F-]{36}$/ { if ($1==t || $2==t) found=1 } END { exit !found }'; then
     return 0
   fi
   echo "Tunnel '${TUNNEL_NAME}' not found. Available tunnels:" >&2
