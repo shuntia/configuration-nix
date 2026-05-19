@@ -253,7 +253,6 @@ $snap
 
     # ─── Power / performance ────────────────────────────────────────────────────
     services.logind.settings.Login.IdleAction = "ignore";
-    services.logind.lingerUsers = [ user ];
     services.irqbalance.enable = true;
     boot.kernel.sysctl = {
       "vm.swappiness"         = 10;
@@ -464,6 +463,7 @@ $snap
       description  = fullName;
       extraGroups  = [ "wheel" "networkmanager" "video" "audio" "docker" "libvirtd" "kvm" ];
       shell        = pkgs.fish;
+      linger       = true;
       hashedPasswordFile = "/persist/secrets/${user}-password";
       openssh.authorizedKeys.keys = [
         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDh2RGhHE6CJRdyC/AvMDEPmjFcEE/YjLER3VXYBfhNPAWTD+oUJNFVJ9OL1tpwxcCH/Ev4CPHBNS9iDSh+PlKELNRZzRuKGKH6a3LB0MVz9/+tSvT+wYGjiAvxOxjz29qOHZH41bxJc3bskP71glPxbi/krxpdI8r5s/z7oqILjwMQb9xgkxtAEXGJ+3JLGn4/cCX/cKsCR8i6bFWrh/sYRQxuzuTZBCKbaE1qR93JyObX1YGh3PAQXWYRqwfnoVg/ZiBSwZzX6lHQxPKmkSYuI2AKdWX2eXg3xmcXeEPH1zoPkLJREkdvGrXWZgrSK6ekNZLa0fGx60ahkZ8J01ycCXZALmyKPkKtP+7QEbLuVE47V7XwJjIteV5NFeuX9am1y9Vo7wm7+XPC52AAhZZh/xarCUWwtzMqG5sSSlRibd0QVarhu3oi5Betzj+DUApfMar2XYvdltVWvbr45tgCZrYLz3CoEEXzi6yeLTjcpi1W0D1xnLSRNiqLRUJJ/bjG6MBxkRZt3+t6EDoCxoJdv32mvF1rw8BZZTrMKzMHX4/NV+xWhpvhqz25HdA7O157ikcSRsCrlCa/gOzrrecnmhwT5Um480t/1ItykO6qDAy9dCJJtb6laBG/HF9tojeeN3E0XYj6ineQlun/DaYvanUpVZQG83V0/snA+Yn1Aw== openpgp:0xD6B8B7E2"
