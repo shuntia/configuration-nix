@@ -384,6 +384,7 @@ $snap
         yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = false;
         well_known = {
           client = "https://${cfDomain}";
+          server = "${cfDomain}:443";
           livekit_url = "https://${rtcDomain}";
         };
       };
@@ -403,6 +404,12 @@ $snap
             add_header Content-Type application/json;
             add_header Access-Control-Allow-Origin *;
             return 200 '{"m.homeserver":{"base_url":"https://${cfDomain}"},"org.matrix.msc4143.rtc_foci":[{"type":"livekit","livekit_service_url":"https://${rtcDomain}"}]}';
+          '';
+        };
+        locations."/.well-known/matrix/server" = {
+          extraConfig = ''
+            add_header Content-Type application/json;
+            return 200 '{"m.server":"${cfDomain}:443"}';
           '';
         };
         locations."/" = {
