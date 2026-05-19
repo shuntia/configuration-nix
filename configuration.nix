@@ -361,11 +361,13 @@ $snap
         };
       };
     };
-    # DynamicUser mounts a tmpfs at /var/lib/private, covering the impermanence
-    # bind mount. BindPaths wires /var/lib/tuwunel (inside the service namespace)
-    # directly to the persist source, bypassing the tmpfs layer.
+    # DynamicUser creates /var/lib/private (mode 0700) and symlinks
+    # /var/lib/tuwunel -> /var/lib/private/tuwunel inside the service namespace.
+    # BindPaths overlays the persist directory onto that resolved path so data
+    # survives reboots without letting impermanence touch /var/lib/private
+    # (which would recreate it at 0755 and break DynamicUser setup).
     systemd.services.tuwunel.serviceConfig.BindPaths =
-      [ "/persist/var/lib/private/tuwunel:/var/lib/tuwunel" ];
+      [ "/persist/tuwunel:/var/lib/tuwunel" ];
 
     systemd.services.nginx.after = [ "tailscale-cert.service" ];
     systemd.services.nginx.wants = [ "tailscale-cert.service" ];
@@ -586,7 +588,6 @@ $snap
         "/etc/NetworkManager/system-connections"
         "/var/lib/docker"
         "/var/lib/libvirt"
-        "/var/lib/private/tuwunel"
       ];
       files = [
         "/etc/machine-id"
