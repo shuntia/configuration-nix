@@ -18,12 +18,15 @@ log() {
   echo ">> $*" >&2
 }
 
+LAST_CMD=""
 run() {
-  log "$*"
+  LAST_CMD="$*"
+  log "$LAST_CMD"
   "$@"
+  LAST_CMD=""
 }
 
-trap 'echo "Error on line ${LINENO}: ${BASH_COMMAND} (exit $?)." >&2' ERR
+trap 'echo "Error on line ${LINENO}: ${LAST_CMD:-$BASH_COMMAND} (exit $?)." >&2' ERR
 
 require_cmd() {
   local cmd="$1"
@@ -46,6 +49,20 @@ gen_alnum() {
   fi
 }
 
+check_tunnel() {
+  local list
+  if ! list="$(cloudflared tunnel list 2>/dev/null)"; then
+    echo "Failed to list tunnels. Are you logged in with cloudflared?" >&2
+    return 1
+  fi
+  if echo "$list" | awk -v t="${TUNNEL_NAME}" 'NR>1 { if ($1==t || $2==t) found=1 } END { exit !found }'; then
+    return 0
+  fi
+  echo "Tunnel '${TUNNEL_NAME}' not found. Available tunnels:" >&2
+  echo "$list" >&2
+  return 1
+}
+
 if [[ "${EUID}" -eq 0 ]]; then
   echo "Run as an unprivileged user so cloudflared uses your user credentials." >&2
   exit 1
@@ -57,6 +74,8 @@ log "Using TUNNEL_NAME=${TUNNEL_NAME}"
 
 require_cmd sudo
 require_cmd cloudflared
+log "Checking cloudflared tunnels"
+check_tunnel
 
 if run sudo test -e "${ENV_FILE}" || run sudo test -e "${LIVEKIT_FILE}"; then
   echo "Refusing to overwrite existing files in ${SECRETS_DIR}." >&2
