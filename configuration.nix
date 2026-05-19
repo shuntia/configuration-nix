@@ -383,6 +383,7 @@ $snap
         allow_federation         = false;
         yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = false;
         well_known = {
+          client = "https://${cfDomain}";
           livekit_url = "https://${rtcDomain}";
         };
       };
