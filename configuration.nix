@@ -334,8 +334,8 @@ $snap
         server_name        = cfDomain;
         address            = [ "127.0.0.1" ];
         port               = [ 6167 ];
-        yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
-        allow_registration = true;
+        allow_registration = false;
+        allow_federation   = false;
       };
     };
 
