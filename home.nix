@@ -631,6 +631,22 @@
     file
   ];
 
+  # ─── Otonoko Discord bot ────────────────────────────────────────────────────
+  systemd.user.services.otonoko = {
+    Unit = {
+      Description = "Otonoko Discord music bot";
+      After       = [ "network.target" ];
+    };
+    Service = {
+      Type             = "simple";
+      WorkingDirectory = "/home/shuntia/Projects/otonoko";
+      ExecStart        = "${pkgs.nodejs}/bin/node /home/shuntia/Projects/otonoko/dist/bot.js";
+      Restart          = "on-failure";
+      RestartSec       = "5s";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
   # ─── LM Studio daemon ───────────────────────────────────────────────────────
   systemd.user.services.lmstudio-server = {
     Unit = {

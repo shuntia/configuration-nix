@@ -253,6 +253,7 @@ $snap
 
     # ─── Power / performance ────────────────────────────────────────────────────
     services.logind.settings.Login.IdleAction = "ignore";
+    services.logind.lingerUsers = [ user ];
     services.irqbalance.enable = true;
     boot.kernel.sysctl = {
       "vm.swappiness"         = 10;
@@ -328,14 +329,23 @@ $snap
     programs.gamemode.enable = true;
 
     # ─── Tuwunel (Matrix homeserver) ────────────────────────────────────────────
+    # tuwunel v1.6.1 has a bug where FallbackAcknowledgement (used by some
+    # clients during dummy UIA) incorrectly requires SSO completion, causing
+    # M_FORBIDDEN on registration. Patched with upstream fix (fda799a).
     services.matrix-tuwunel = {
       enable = true;
+      package = pkgs.matrix-tuwunel.overrideAttrs (old: {
+        patches = (old.patches or []) ++ [
+          ./fix-uiaa-fallback-ack.patch
+        ];
+      });
       settings.global = {
         server_name        = cfDomain;
         address            = [ "127.0.0.1" ];
         port               = [ 6167 ];
-        allow_registration = false;
+        allow_registration = true;
         allow_federation   = false;
+        yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = true;
       };
     };
 

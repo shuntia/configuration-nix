@@ -1,0 +1,23 @@
+--- a/src/service/uiaa/mod.rs
++++ b/src/service/uiaa/mod.rs
+@@ -181,18 +181,9 @@ pub async fn try_auth(
+ 				return Ok((false, uiaainfo));
+ 			}
+ 		},
+ 		| AuthData::FallbackAcknowledgement(_session) => {
+-			// FallbackAcknowledgement is used for SSO and other fallback flows.
+-			// The SSO callback route marks the session as completed by adding
+-			// AuthType::Sso.
+-			if !uiaainfo.completed.contains(&AuthType::Sso) {
+-				uiaainfo.auth_error = Some(StandardErrorBody {
+-					kind: ErrorKind::forbidden(),
+-					message: "SSO authentication not completed for this session.".to_owned(),
+-				});
+-
+-				return Ok((false, uiaainfo));
+-			}
++			// A fallback acknowledgement is a session re-poll. The fallback
++			// web handler (e.g. the SSO callback) is what records completion.
+ 		},
+ 		| AuthData::OAuth(_) => {
+ 			// MSC4312: OAuth cross-signing reset uses SSO re-authentication.
