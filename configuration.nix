@@ -7,9 +7,7 @@ let
   tailnet  = "tail5ec9c9.ts.net";
   tsFQDN   = "${hostname}.${tailnet}";
   # Public-facing hostname (served via Cloudflare tunnel)
-  cfDomain   = "uwu.shuntia.net";
-  # Replace after: cloudflared login && cloudflared tunnel create main
-  tunnelUUID = "00000000-0000-0000-0000-000000000000";
+  cfDomain = "uwu.shuntia.net";
   # Derived from fileSystems."/".device via systemd path-escaping rules:
   # strip leading /, replace remaining / with -, append .device
   rootDeviceUnit = dev:
@@ -17,6 +15,11 @@ let
 in
 {
   imports = [ ./hardware-configuration.nix ];
+
+  options.private.tunnelUUID = lib.mkOption {
+    type    = lib.types.str;
+    default = "00000000-0000-0000-0000-000000000000";
+  };
 
   # ─── Boot ──────────────────────────────────────────────────────────────────
   boot.loader.systemd-boot = {
@@ -236,7 +239,7 @@ $snap
   # Then replace tunnelUUID in the let block with the UUID from the JSON filename.
   services.cloudflared = {
     enable = true;
-    tunnels.${tunnelUUID} = {
+    tunnels.${config.private.tunnelUUID} = {
       credentialsFile = "/persist/secrets/cloudflared-main.json";
       ingress = {
         # Matrix homeserver
@@ -599,6 +602,7 @@ $snap
         ".mozilla"
         ".steam" ".local/share/Steam"
         ".cache/mesa_shader_cache" ".cache/nv" ".cache/nix"
+        ".cloudflared"
         # Tool state
         ".local/share/atuin"
         ".local/share/zoxide"

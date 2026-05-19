@@ -29,6 +29,7 @@
       modules = [
         ./configuration.nix
         ./zen.nix
+      ] ++ (if builtins.pathExists ./private.nix then [ ./private.nix ] else []) ++ [
         impermanence.nixosModules.impermanence
         home-manager.nixosModules.home-manager
         {
