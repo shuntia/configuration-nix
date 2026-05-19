@@ -343,7 +343,7 @@ $snap
         address                  = [ "127.0.0.1" ];
         port                     = [ 6167 ];
         allow_registration       = true;
-        registration_token_file  = "/persist/secrets/matrix-registration-token";
+        registration_token_file  = "/var/lib/tuwunel/registration-token";
         allow_federation         = false;
         yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = false;
       };
@@ -382,6 +382,15 @@ $snap
           mkdir -p /persist/tuwunel
           chown tuwunel:tuwunel /persist/tuwunel
           chmod 0700 /persist/tuwunel
+
+          if [[ ! -s /persist/secrets/matrix-registration-token ]]; then
+            echo "Missing or empty /persist/secrets/matrix-registration-token" >&2
+            exit 1
+          fi
+
+          install -m 0400 -o tuwunel -g tuwunel \
+            /persist/secrets/matrix-registration-token \
+            /persist/tuwunel/registration-token
         '';
       in [ "+${setup}" ];
       BindPaths = [ "/persist/tuwunel:/var/lib/tuwunel" ];
