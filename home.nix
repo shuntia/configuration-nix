@@ -1,6 +1,7 @@
 { config, lib, pkgs, ... }:
 
 {
+  imports = lib.optional (builtins.pathExists ./private.nix) ./private.nix;
   home.username    = "shuntia";
   home.homeDirectory = "/home/shuntia";
   home.stateVersion  = "25.11";

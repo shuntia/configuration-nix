@@ -155,11 +155,18 @@ $snap
   # ─── Networking ─────────────────────────────────────────────────────────────
   networking.hostName = hostname;
   networking.networkmanager.enable = true;
-  networking.interfaces.eno2.useDHCP = true;
-  networking.interfaces.eno2.ipv6.addresses = [{
-    address      = "2601:647:4101:a5c0::1";
-    prefixLength = 64;
-  }];
+  networking.networkmanager.ensureProfiles.profiles.eno2 = {
+    connection = {
+      id             = "eno2";
+      type           = "802-3-ethernet";
+      interface-name = "eno2";
+    };
+    ipv4.method = "auto";
+    ipv6 = {
+      method   = "auto";
+      address1 = "2601:647:4101:a5c0::1/64";
+    };
+  };
   networking.firewall = {
     enable = true;
     # Globally reachable
