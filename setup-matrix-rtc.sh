@@ -38,7 +38,11 @@ gen_alnum() {
   if command -v pwgen >/dev/null 2>&1; then
     pwgen -s -1 "${len}"
   else
-    LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${len}"
+    # Avoid pipefail SIGPIPE when head closes early.
+    (
+      set +o pipefail
+      LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${len}"
+    )
   fi
 }
 
