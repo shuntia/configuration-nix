@@ -235,13 +235,13 @@ $snap
     # One-time setup (run as any user before nixos-rebuild):
     #   cloudflared login
     #   cloudflared tunnel create main
-    #   sudo cp ~/.cloudflared/<uuid>.json /persist/secrets/cloudflared-main.json
+    #   sudo cp ~/.cloudflared/<uuid>.json /persist/secrets/cloudflared-uwu.json
     #   cloudflared tunnel route dns main uwu.shuntia.net
     # Then replace tunnelUUID in the let block with the UUID from the JSON filename.
     services.cloudflared = {
       enable = true;
       tunnels.${config.private.tunnelUUID} = {
-        credentialsFile = "/persist/secrets/cloudflared-main.json";
+        credentialsFile = "/persist/secrets/cloudflared-uwu.json";
         ingress = {
           # Matrix homeserver
           ${cfDomain} = { service = "http://127.0.0.1:6167"; };
