@@ -40,20 +40,25 @@ if sudo test -e "${ENV_FILE}" || sudo test -e "${LIVEKIT_FILE}"; then
   exit 1
 fi
 
-sudo install -d -m 0700 "${SECRETS_DIR}"
+sudo mkdir -p "${SECRETS_DIR}"
+sudo chmod 0700 "${SECRETS_DIR}"
 
 LIVEKIT_KEY="$(gen_alnum 20)"
 LIVEKIT_SECRET="$(gen_alnum 64)"
 
-sudo install -m 0600 /dev/null "${ENV_FILE}"
-sudo install -m 0600 /dev/null "${LIVEKIT_FILE}"
+tmp_env="$(mktemp)"
+tmp_livekit="$(mktemp)"
+cleanup() {
+  rm -f "${tmp_env}" "${tmp_livekit}"
+}
+trap cleanup EXIT
 
-sudo tee "${ENV_FILE}" >/dev/null <<EOF
+cat > "${tmp_env}" <<EOF
 LIVEKIT_KEY=${LIVEKIT_KEY}
 LIVEKIT_SECRET=${LIVEKIT_SECRET}
 EOF
 
-sudo tee "${LIVEKIT_FILE}" >/dev/null <<EOF
+cat > "${tmp_livekit}" <<EOF
 port: 7880
 bind_addresses:
   - ""
@@ -66,6 +71,11 @@ rtc:
 keys:
   ${LIVEKIT_KEY}: ${LIVEKIT_SECRET}
 EOF
+
+sudo mv "${tmp_env}" "${ENV_FILE}"
+sudo mv "${tmp_livekit}" "${LIVEKIT_FILE}"
+sudo chmod 600 "${ENV_FILE}" "${LIVEKIT_FILE}"
+trap - EXIT
 
 cloudflared tunnel route dns "${TUNNEL_NAME}" "${RTC_DOMAIN}"
 
