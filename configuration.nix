@@ -6,6 +6,10 @@ let
   hostname = "shuntia-nix";
   tailnet  = "tail5ec9c9.ts.net";
   tsFQDN   = "${hostname}.${tailnet}";
+  # Public-facing hostname (served via Cloudflare tunnel)
+  cfDomain   = "uwu.shuntia.net";
+  # Replace after: cloudflared login && cloudflared tunnel create main
+  tunnelUUID = "00000000-0000-0000-0000-000000000000";
   # Derived from fileSystems."/".device via systemd path-escaping rules:
   # strip leading /, replace remaining / with -, append .device
   rootDeviceUnit = dev:
@@ -216,6 +220,26 @@ $snap
   # ─── Tailscale ──────────────────────────────────────────────────────────────
   services.tailscale.enable = true;
 
+  # ─── Cloudflare tunnel ──────────────────────────────────────────────────────
+  # One-time setup (run as any user before nixos-rebuild):
+  #   cloudflared login
+  #   cloudflared tunnel create main
+  #   sudo cp ~/.cloudflared/<uuid>.json /persist/secrets/cloudflared-main.json
+  #   cloudflared tunnel route dns main uwu.shuntia.net
+  # Then replace tunnelUUID in the let block with the UUID from the JSON filename.
+  services.cloudflared = {
+    enable = true;
+    tunnels.${tunnelUUID} = {
+      credentialsFile = "/persist/secrets/cloudflared-main.json";
+      ingress = {
+        # Matrix homeserver
+        ${cfDomain} = { service = "http://127.0.0.1:6167"; };
+        # Add further hostname = { service = "..."; }; entries here
+      };
+      default = "http_status:404";
+    };
+  };
+
   # ─── Power / performance ────────────────────────────────────────────────────
   services.logind.settings.Login.IdleAction = "ignore";
   services.irqbalance.enable = true;
@@ -296,7 +320,7 @@ $snap
   services.matrix-tuwunel = {
     enable = true;
     settings.global = {
-      server_name        = tsFQDN;
+      server_name        = cfDomain;
       address            = [ "127.0.0.1" ];
       port               = [ 6167 ];
       allow_registration = false;
@@ -317,7 +341,7 @@ $snap
         extraConfig = ''
           add_header Content-Type application/json;
           add_header Access-Control-Allow-Origin *;
-          return 200 '{"m.homeserver":{"base_url":"https://${tsFQDN}"}}';
+          return 200 '{"m.homeserver":{"base_url":"https://${cfDomain}"}}';
         '';
       };
       locations."/" = {
@@ -326,8 +350,11 @@ $snap
       };
     };
   };
-  systemd.services.tuwunel.serviceConfig.ExecStartPre =
-    lib.mkBefore [ "+${pkgs.coreutils}/bin/chmod 0700 /var/lib/private" ];
+  # DynamicUser mounts a tmpfs at /var/lib/private, covering the impermanence
+  # bind mount. BindPaths wires /var/lib/tuwunel (inside the service namespace)
+  # directly to the persist source, bypassing the tmpfs layer.
+  systemd.services.tuwunel.serviceConfig.BindPaths =
+    [ "/persist/var/lib/private/tuwunel:/var/lib/tuwunel" ];
 
   systemd.services.nginx.after = [ "tailscale-cert.service" ];
   systemd.services.nginx.wants = [ "tailscale-cert.service" ];
@@ -542,6 +569,7 @@ $snap
       "/var/lib/nixos"
       "/var/lib/systemd/coredump"
       "/var/lib/tailscale"
+      "/var/lib/cloudflared"
       "/var/lib/bluetooth"
       "/var/lib/NetworkManager"
       "/etc/NetworkManager/system-connections"
@@ -602,6 +630,7 @@ $snap
 
   # ─── Packages ───────────────────────────────────────────────────────────────
   environment.systemPackages = with pkgs; [
+    cloudflared
     git vim tmux
     btrfs-progs
     pciutils usbutils lshw
