@@ -708,6 +708,7 @@ $snap
           "go"
           ".wine"
           ".config/sunshine"
+          ".config/comfy-ui"
           ".lmstudio"
           "models"
         ];

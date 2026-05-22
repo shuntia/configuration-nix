@@ -401,8 +401,8 @@
       lapwing   = "cat ~/shuntools/lapwing-base.txt | fzf -e";
       container = "make -C /home/shuntia/projects/seL4-CAmkES-L4v-dockerfiles user HOST_DIR=(pwd)";
 
-      # ComfyUI (CUDA + GGUF nodes, models/outputs in /persist/comfyui)
-      comfyui = "comfy-ui --base-directory /persist/comfyui --enable-manager --listen 0.0.0.0";
+      # ComfyUI (CUDA + GGUF nodes, data in ~/.config/comfy-ui)
+      comfyui = "comfy-ui --enable-manager --listen 0.0.0.0";
 
       # llama.cpp presets
       llm8    = "llm qwen3-8b";
