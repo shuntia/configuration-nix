@@ -271,6 +271,18 @@ $snap
       "vm.vfs_cache_pressure" = 50;
     };
 
+    # ─── ComfyUI ────────────────────────────────────────────────────────────────
+    # GGUF nodes (ComfyUI-GGUF) are bundled in comfyui-nix; no extra config needed.
+    # Port 8188 is already LAN-accessible via the firewall extraCommands rules.
+    services.comfyui = {
+      enable        = false;
+      gpuSupport    = "cuda";
+      enableManager = true;
+      listenAddress = "0.0.0.0";
+      port          = 8188;
+      dataDir       = "/persist/comfyui";
+    };
+
     # ─── Docker ─────────────────────────────────────────────────────────────────
     virtualisation.docker = {
       enable           = true;

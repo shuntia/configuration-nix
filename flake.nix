@@ -21,15 +21,19 @@
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    comfyui-nix.url = "github:utensils/comfyui-nix";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, impermanence, illogical-flake, zen-browser, ... }@inputs: {
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, impermanence, illogical-flake, zen-browser, comfyui-nix, ... }@inputs: {
     nixosConfigurations.shuntia-nix = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
       modules = [
         ./configuration.nix
         ./zen.nix
+        comfyui-nix.nixosModules.default
+        { nixpkgs.overlays = [ comfyui-nix.overlays.default ]; }
       ] ++ (if builtins.pathExists ./private.nix then [ ./private.nix ] else []) ++ [
         impermanence.nixosModules.impermanence
         home-manager.nixosModules.home-manager
