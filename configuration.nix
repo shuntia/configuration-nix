@@ -464,9 +464,9 @@ $snap
       enable = true;
       settings = {
         homeserverUrl = "https://${cfDomain}";
-        # Draupnir creates the management room on first start and invites initialManager.
-        # After setup, replace with: managementRoom = "!<room-id>:${cfDomain}";
-        initialManager = "@${user}:${cfDomain}";
+        # Create a private unencrypted room in your Matrix client, invite the bot,
+        # then set this to the room ID (Settings → Advanced → Internal Room ID).
+        managementRoom = "!2E1UE1eGAmZJW5fdqS:${cfDomain}";
       };
       secrets.accessToken = "/persist/secrets/draupnir-access-token";
     };
