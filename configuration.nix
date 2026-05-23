@@ -459,6 +459,35 @@ $snap
       BindPaths = [ "/persist/tuwunel:/var/lib/tuwunel" ];
     };
 
+    # ─── Draupnir (Matrix moderation bot) ─────────────────────────────────────
+    services.draupnir = {
+      enable = true;
+      settings = {
+        homeserverUrl = "https://${cfDomain}";
+        # Draupnir creates the management room on first start and invites initialManager.
+        # After setup, replace with: managementRoom = "!<room-id>:${cfDomain}";
+        initialManager = "@${user}:${cfDomain}";
+      };
+      secrets.accessToken = "/persist/secrets/draupnir-access-token";
+    };
+
+    # Persist Draupnir state across reboots (same pattern as tuwunel).
+    # Pre-requisite: save the bot's access token to /persist/secrets/draupnir-access-token
+    systemd.services.draupnir = {
+      after = [ "tuwunel.service" ];
+      wants = [ "tuwunel.service" ];
+      serviceConfig = {
+        ExecStartPre = let
+          setup = pkgs.writeShellScript "draupnir-persist-setup" ''
+            mkdir -p /persist/draupnir
+            chown draupnir:draupnir /persist/draupnir
+            chmod 0700 /persist/draupnir
+          '';
+        in [ "+${setup}" ];
+        BindPaths = [ "/persist/draupnir:/var/lib/draupnir" ];
+      };
+    };
+
     systemd.services.nginx.after = [ "tailscale-cert.service" ];
     systemd.services.nginx.wants = [ "tailscale-cert.service" ];
 

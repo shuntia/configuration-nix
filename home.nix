@@ -402,7 +402,7 @@
       container = "make -C /home/shuntia/projects/seL4-CAmkES-L4v-dockerfiles user HOST_DIR=(pwd)";
 
       # ComfyUI (CUDA + GGUF nodes, data in ~/.config/comfy-ui)
-      comfyui = "comfy-ui --enable-manager --listen 0.0.0.0";
+      comfyui = "comfy-ui --enable-manager --listen 0.0.0.0 --base-dir /persist/comfyui";
 
       # llama.cpp presets
       llm8    = "llm qwen3-8b";
