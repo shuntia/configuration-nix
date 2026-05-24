@@ -471,12 +471,25 @@ $snap
       secrets.accessToken = "/persist/secrets/draupnir-access-token";
     };
 
-    # Persist Draupnir state across reboots (same pattern as tuwunel).
+    # Persist Draupnir state across reboots.
+    # DynamicUser=true is overridden to false because with DynamicUser the module
+    # creates /var/lib/draupnir as a symlink to /var/lib/private/draupnir, and
+    # systemd resolves the symlink when setting up BindPaths — before it has
+    # created the private directory — causing namespace setup to fail on each boot.
+    # A static user avoids the private-dir symlink entirely.
     # Pre-requisite: save the bot's access token to /persist/secrets/draupnir-access-token
+    users.users.draupnir = {
+      isSystemUser = true;
+      group = "draupnir";
+    };
+    users.groups.draupnir = {};
     systemd.services.draupnir = {
       after = [ "tuwunel.service" ];
       wants = [ "tuwunel.service" ];
       serviceConfig = {
+        DynamicUser = lib.mkForce false;
+        User = "draupnir";
+        Group = "draupnir";
         ExecStartPre = let
           setup = pkgs.writeShellScript "draupnir-persist-setup" ''
             mkdir -p /persist/draupnir
