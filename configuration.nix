@@ -471,12 +471,11 @@ $snap
       secrets.accessToken = "/persist/secrets/draupnir-access-token";
     };
 
-    # Persist Draupnir state across reboots.
-    # DynamicUser=true is overridden to false because with DynamicUser the module
-    # creates /var/lib/draupnir as a symlink to /var/lib/private/draupnir, and
-    # systemd resolves the symlink when setting up BindPaths — before it has
-    # created the private directory — causing namespace setup to fail on each boot.
-    # A static user avoids the private-dir symlink entirely.
+    # Persist Draupnir state across reboots via impermanence (/var/lib/draupnir
+    # is listed in environment.persistence above). DynamicUser is forced off so
+    # systemd does not create /var/lib/draupnir as a symlink into the private
+    # tmpdir (which would dangle on each boot and break namespace setup).
+    # A static user owns the directory instead.
     # Pre-requisite: save the bot's access token to /persist/secrets/draupnir-access-token
     users.users.draupnir = {
       isSystemUser = true;
@@ -490,14 +489,7 @@ $snap
         DynamicUser = lib.mkForce false;
         User = "draupnir";
         Group = "draupnir";
-        ExecStartPre = let
-          setup = pkgs.writeShellScript "draupnir-persist-setup" ''
-            mkdir -p /persist/draupnir
-            chown draupnir:draupnir /persist/draupnir
-            chmod 0700 /persist/draupnir
-          '';
-        in [ "+${setup}" ];
-        BindPaths = [ "/persist/draupnir:/var/lib/draupnir" ];
+        StateDirectory = lib.mkForce "";
       };
     };
 
@@ -722,6 +714,7 @@ $snap
         "/var/lib/docker"
         "/var/lib/libvirt"
         "/var/lib/llama"
+        { directory = "/var/lib/draupnir"; user = "draupnir"; group = "draupnir"; mode = "0700"; }
       ];
       files = [
         "/etc/machine-id"
@@ -852,6 +845,11 @@ $snap
     ];
 
     nixpkgs.config.allowUnfree = true;
+    # Restrict CUDA compilation to RTX 2080 Ti (Turing, CC 7.5) only.
+    # Without this, nvcc compiles for every known architecture in parallel,
+    # which causes cicc to segfault (OOM) during the ollama/llama-cpp builds.
+    nixpkgs.config.cudaCapabilities = [ "7.5" ];
+    nixpkgs.config.cudaForwardCompat = false;
 
     # ─── Tmpfiles ───────────────────────────────────────────────────────────────
     # systemd requires /var/lib/private to be 0700 for DynamicUser services.
