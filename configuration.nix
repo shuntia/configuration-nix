@@ -502,7 +502,7 @@ $snap
         identity_provider = [{
           brand              = "MAS";
           client_id          = masClientId;
-          client_secret_file = "/persist/secrets/mas-client-secret";
+          client_secret_file = "/var/lib/tuwunel/mas-client-secret";
           issuer_url         = "https://${authDomain}";
           callback_url       = "https://${cfDomain}/_matrix/client/unstable/login/sso/callback/${masClientId}";
         }];
@@ -573,6 +573,15 @@ $snap
           install -m 0400 -o tuwunel -g tuwunel \
             /persist/secrets/matrix-registration-token \
             /persist/tuwunel/registration-token
+
+          if [[ ! -s /persist/secrets/mas-client-secret ]]; then
+            echo "Missing or empty /persist/secrets/mas-client-secret" >&2
+            exit 1
+          fi
+
+          install -m 0400 -o tuwunel -g tuwunel \
+            /persist/secrets/mas-client-secret \
+            /persist/tuwunel/mas-client-secret
         '';
       in [ "+${setup}" ];
       BindPaths = [ "/persist/tuwunel:/var/lib/tuwunel" ];
