@@ -10,6 +10,57 @@ let
   cfDomain = "uwu.shuntia.net";
   rtcDomain = "matrix-rtc.${cfDomain}";
   rtcProxyPort = 8181;
+  # ─── Matrix Authentication Service ────────────────────────────────────────
+  authDomain  = "auth.${cfDomain}";
+  masPort     = 8082;
+  masPackage  = pkgsUnstable.matrix-authentication-service;
+  masShareDir = "${masPackage}/share/matrix-authentication-service";
+  # ULID registered as the Tuwunel OAuth client in MAS. Must match the
+  # client_id in /persist/secrets/mas-client-secret and in the MAS clients
+  # section below. ULIDs use Crockford base32; this one is a fixed sentinel.
+  masClientId = "01JWMAS000000000000000001";
+  masConfig   = pkgs.writeText "mas-config.yaml" ''
+    http:
+      public_base: "https://${authDomain}/"
+      issuer: "https://${authDomain}/"
+      listeners:
+        - name: web
+          resources:
+            - name: discovery
+            - name: human
+            - name: oauth
+            - name: compat
+            - name: graphql
+            - name: assets
+              path: "${masShareDir}/assets"
+          binds:
+            - address: "127.0.0.1:${toString masPort}"
+
+    templates:
+      path: "${masShareDir}/templates"
+
+    i18n:
+      path: "${masShareDir}/translations"
+
+    policy:
+      wasm_module: "${masShareDir}/policy.wasm"
+
+    database:
+      uri: "postgresql:///mas?host=/var/run/postgresql"
+
+    secrets:
+      encryption_file: /persist/secrets/mas-encryption-key
+      keys:
+        - key_file: /persist/secrets/mas-private-key.pem
+
+    clients:
+      - client_id: "${masClientId}"
+        client_auth_method: client_secret_post
+        client_secret_file: /persist/secrets/mas-client-secret
+        redirect_uris:
+          - "https://${cfDomain}/_matrix/client/unstable/login/sso/callback/${masClientId}"
+  '';
+
   pkgsUnstable = import inputs.nixpkgs-unstable {
     system = pkgs.system;
     config = config.nixpkgs.config;
@@ -257,7 +308,8 @@ $snap
           ${cfDomain} = { service = "http://127.0.0.1:6167"; };
           # MatrixRTC (Livekit + JWT service)
           ${rtcDomain} = { service = "http://127.0.0.1:${toString rtcProxyPort}"; };
-          # Add further hostname = { service = "..."; }; entries here
+          # Matrix Authentication Service
+          ${authDomain} = { service = "http://127.0.0.1:${toString masPort}"; };
         };
         default = "http_status:404";
       };
@@ -363,6 +415,66 @@ $snap
     };
     programs.gamemode.enable = true;
 
+    # ─── PostgreSQL (for MAS) ────────────────────────────────────────────────────
+    services.postgresql = {
+      enable = true;
+      ensureDatabases = [ "mas" ];
+      ensureUsers = [{
+        name = "mas";
+        ensureDBOwnership = true;
+      }];
+    };
+
+    # ─── Matrix Authentication Service (MAS) ────────────────────────────────────
+    # Provides OIDC SSO for Tuwunel. Users click "Login with MAS" and are
+    # redirected here to authenticate; Tuwunel maps the returned identity to a
+    # local Matrix account. This is OIDC SSO delegation (not MSC3861 full
+    # delegation — Tuwunel still owns accounts and tokens).
+    #
+    # One-time secret setup (run as root):
+    #   openssl rand -hex 32 > /persist/secrets/mas-encryption-key
+    #   openssl genrsa -out /persist/secrets/mas-private-key.pem 2048
+    #   openssl rand -base64 48 | tr -d '\n' > /persist/secrets/mas-client-secret
+    #   chown mas:mas /persist/secrets/mas-encryption-key \
+    #                 /persist/secrets/mas-private-key.pem \
+    #                 /persist/secrets/mas-client-secret
+    #   chmod 400     /persist/secrets/mas-encryption-key \
+    #                 /persist/secrets/mas-private-key.pem \
+    #                 /persist/secrets/mas-client-secret
+    users.users.mas = { isSystemUser = true; group = "mas"; };
+    users.groups.mas = {};
+
+    systemd.services.matrix-authentication-service = {
+      description = "Matrix Authentication Service";
+      after    = [ "network-online.target" "postgresql.service" ];
+      wants    = [ "network-online.target" ];
+      requires = [ "postgresql.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type  = "simple";
+        User  = "mas";
+        Group = "mas";
+        StateDirectory     = "mas";
+        StateDirectoryMode = "0700";
+        ExecStartPre = let
+          preflight = pkgs.writeShellScript "mas-preflight" ''
+            for f in /persist/secrets/mas-encryption-key \
+                     /persist/secrets/mas-private-key.pem \
+                     /persist/secrets/mas-client-secret; do
+              if [[ ! -f "$f" ]]; then
+                echo "MAS secret missing: $f" >&2
+                exit 1
+              fi
+            done
+            ${masPackage}/bin/mas-cli --config ${masConfig} database migrate
+          '';
+        in [ preflight ];
+        ExecStart  = "${masPackage}/bin/mas-cli --config ${masConfig} server";
+        Restart    = "on-failure";
+        RestartSec = 10;
+      };
+    };
+
     # ─── Tuwunel (Matrix homeserver) ────────────────────────────────────────────
     # tuwunel <1.6.2 has a bug where FallbackAcknowledgement (used by some
     # clients during dummy UIA) incorrectly requires SSO completion, causing
@@ -387,6 +499,13 @@ $snap
           server = "${cfDomain}:443";
           livekit_url = "https://${rtcDomain}";
         };
+        identity_provider = [{
+          brand              = "MAS";
+          client_id          = masClientId;
+          client_secret_file = "/persist/secrets/mas-client-secret";
+          issuer_url         = "https://${authDomain}";
+          callback_url       = "https://${cfDomain}/_matrix/client/unstable/login/sso/callback/${masClientId}";
+        }];
       };
     };
 
@@ -717,6 +836,8 @@ $snap
         "/var/lib/libvirt"
         "/var/lib/llama"
         { directory = "/var/lib/draupnir"; user = "draupnir"; group = "draupnir"; mode = "0700"; }
+        "/var/lib/mas"
+        { directory = "/var/lib/postgresql"; user = "postgres"; group = "postgres"; mode = "0700"; }
       ];
       files = [
         "/etc/machine-id"
