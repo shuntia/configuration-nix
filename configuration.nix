@@ -467,6 +467,8 @@ $snap
         # Create a private unencrypted room in your Matrix client, invite the bot,
         # then set this to the room ID (Settings → Advanced → Internal Room ID).
         managementRoom = "!2E1UE1eGAmZJW5fdqS:${cfDomain}";
+        autoJoinOnlyIfManager = true;
+        pantalaimon = {use = false;};
       };
       secrets.accessToken = "/persist/secrets/draupnir-access-token";
     };

@@ -628,6 +628,7 @@
     unzip
     p7zip
     file
+    matrix-authentication-service
   ];
 
   # ─── Otonoko Discord bot ────────────────────────────────────────────────────
