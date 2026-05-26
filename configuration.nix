@@ -18,7 +18,7 @@ let
   # ULID registered as the Tuwunel OAuth client in MAS. Must match the
   # client_id in /persist/secrets/mas-client-secret and in the MAS clients
   # section below. ULIDs use Crockford base32; this one is a fixed sentinel.
-  masClientId = "01JWMAS000000000000000001";
+  masClientId = "01JWMAS0000000000000000001";
   # matrix.secret cannot use a _file reference, so this template has a
   # placeholder substituted at runtime by the preflight script.
   masConfigTemplate = pkgs.writeText "mas-config-template.yaml" ''
@@ -455,7 +455,7 @@ $snap
     # delegation — Tuwunel still owns accounts and tokens).
     #
     # One-time secret setup (run as root):
-    #   openssl rand -hex 32 > /persist/secrets/mas-encryption-key
+    #   openssl rand -hex 32 | tr -d '\n' > /persist/secrets/mas-encryption-key
     #   openssl genrsa -out /persist/secrets/mas-private-key.pem 2048
     #   openssl rand -base64 48 | tr -d '\n' > /persist/secrets/mas-client-secret
     #   openssl rand -hex 32 > /persist/secrets/mas-homeserver-secret
