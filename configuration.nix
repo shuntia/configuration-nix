@@ -460,10 +460,6 @@ $snap
     users.users.mas = { isSystemUser = true; group = "mas"; };
     users.groups.mas = {};
 
-    systemd.tmpfiles.rules = [
-      "d /persist/secrets 0711 root root -"
-    ];
-
     systemd.services.matrix-authentication-service = {
       description = "Matrix Authentication Service";
       after    = [ "network-online.target" "postgresql.service" ];
@@ -1009,6 +1005,7 @@ $snap
     # bind-mount setup is corrected on every switch/boot.
     systemd.tmpfiles.rules = [
       "d /var/lib/private 0700 root root -"
+      "d /persist/secrets 0711 root root -"
     ];
 
     # ─── Nix settings ───────────────────────────────────────────────────────────
