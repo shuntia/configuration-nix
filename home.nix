@@ -410,6 +410,9 @@
       llm14   = "llm qwen3-14b";
       llmcode = "llm qwen3-coder-30b";
 
+      # hermes VM
+      hermes = "sudo systemd-run --machine hermes-vm --pty --same-dir --wait --collect -- bash -l";
+
       # sandbox shell
       sb = ''bwrap --unshare-all --unshare-user --disable-userns --share-net --hostname TIDY --clearenv --setenv PATH "/usr/local/bin:/usr/bin:/bin" --setenv HOME "/home/tidy" --setenv USER tidy --setenv LOGNAME tidy --setenv TERM "$TERM" --tmpfs /tmp --tmpfs /home --dir /home/tidy/.config --dir /home/tidy/.local --dir /home/tidy/.cache --bind /dev/null /proc/cpuinfo --tmpfs /proc/net/ --dev /dev --proc /proc --bind $PWD /home/tidy/(basename $PWD) --die-with-parent --ro-bind /bin /bin --ro-bind /usr/bin /usr/bin --ro-bind /usr/local/bin /usr/local/bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /usr/lib /usr/lib --ro-bind /etc/resolv.conf /etc/resolv.conf --ro-bind /etc/ssl /etc/ssl --ro-bind /usr/share/terminfo/ /usr/share/terminfo/ --chdir /home/tidy/(basename $PWD)'';
     };
