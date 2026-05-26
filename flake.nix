@@ -23,9 +23,14 @@
     };
 
     comfyui-nix.url = "github:utensils/comfyui-nix";
+
+    microvm = {
+      url = "github:microvm-nix/microvm.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, impermanence, illogical-flake, zen-browser, comfyui-nix, ... }@inputs: {
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, impermanence, illogical-flake, zen-browser, comfyui-nix, microvm, ... }@inputs: {
     nixosConfigurations.shuntia-nix = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
@@ -36,6 +41,9 @@
         { nixpkgs.overlays = [ comfyui-nix.overlays.default ]; }
       ] ++ (if builtins.pathExists ./private.nix then [ ./private.nix ] else []) ++ [
         impermanence.nixosModules.impermanence
+        microvm.nixosModules.host
+        ./modules/hermes-sandbox-host.nix
+        ./modules/hermes-sandbox-vm.nix
         home-manager.nixosModules.home-manager
         {
           home-manager = {
