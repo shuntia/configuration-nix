@@ -460,6 +460,10 @@ $snap
     users.users.mas = { isSystemUser = true; group = "mas"; };
     users.groups.mas = {};
 
+    systemd.tmpfiles.rules = [
+      "d /persist/secrets 0711 root root -"
+    ];
+
     systemd.services.matrix-authentication-service = {
       description = "Matrix Authentication Service";
       after    = [ "network-online.target" "postgresql.service" ];
