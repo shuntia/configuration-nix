@@ -48,6 +48,20 @@ in
       description = "DNS resolver assigned to the VM.";
     };
 
+    llm = {
+      # Empty baseUrl → computed at config time as http://<hostAddress>:8080/v1
+      baseUrl = lib.mkOption {
+        type    = lib.types.str;
+        default = "";
+        description = "OpenAI-compatible base URL of the local LLM server. Defaults to http://<hostAddress>:8080/v1.";
+      };
+      model = lib.mkOption {
+        type    = lib.types.str;
+        default = "";
+        description = "Model name passed as HERMES_MODEL. Empty uses whatever the server advertises as default.";
+      };
+    };
+
     matrix = {
       homeserver = lib.mkOption {
         type    = lib.types.str;

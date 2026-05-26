@@ -46,16 +46,28 @@ in
       # which sources can actually reach them.
       networking.firewall.allowedTCPPorts = [ 8642 9119 ];
 
-      # Matrix gateway — non-secret config only.
-      # MATRIX_ACCESS_TOKEN must be placed in /opt/data/.env by the user
-      # (via `docker exec -it hermes hermes gateway setup` or manually).
+      # Non-secret config injected from host options.
+      # MATRIX_ACCESS_TOKEN must be placed in /opt/data/.env by the user.
+      # OPENAI_API_KEY is a placeholder; llama.cpp accepts any non-empty value.
       virtualisation.oci-containers.containers.hermes.environment =
-        lib.mkIf (cfg.matrix.homeserver != "") {
-          MATRIX_HOMESERVER     = cfg.matrix.homeserver;
-          MATRIX_ALLOWED_USERS  = lib.concatStringsSep "," cfg.matrix.allowedUsers;
-          MATRIX_ENCRYPTION     = if cfg.matrix.encryption then "true" else "false";
-          MATRIX_REQUIRE_MENTION = if cfg.matrix.requireMention then "true" else "false";
-        };
+        let
+          effectiveUrl = if cfg.llm.baseUrl != ""
+                         then cfg.llm.baseUrl
+                         else "http://${cfg.hostAddress}:8080/v1";
+        in
+          {
+            OPENAI_BASE_URL = effectiveUrl;
+            OPENAI_API_KEY  = "sk-llama";
+          }
+          // lib.optionalAttrs (cfg.llm.model != "") {
+            HERMES_MODEL = cfg.llm.model;
+          }
+          // lib.optionalAttrs (cfg.matrix.homeserver != "") {
+            MATRIX_HOMESERVER      = cfg.matrix.homeserver;
+            MATRIX_ALLOWED_USERS   = lib.concatStringsSep "," cfg.matrix.allowedUsers;
+            MATRIX_ENCRYPTION      = if cfg.matrix.encryption then "true" else "false";
+            MATRIX_REQUIRE_MENTION = if cfg.matrix.requireMention then "true" else "false";
+          };
     };
   };
 }

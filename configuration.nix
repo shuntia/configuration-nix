@@ -323,6 +323,22 @@ $snap
       "vm.vfs_cache_pressure" = 50;
     };
 
+    # ─── llama.cpp server (OpenAI-compatible, GPU-accelerated) ─────────────────
+    # Model file: /var/lib/llama/model.gguf  (persisted; place any GGUF there)
+    # Reachable by the Hermes VM at http://10.200.100.1:8080/v1
+    services.llama-cpp = {
+      enable  = true;
+      host    = "0.0.0.0";
+      port    = 8080;
+      model   = "/var/lib/llama/model.gguf";
+      package = pkgs.llama-cpp.override { cudaSupport = true; };
+      extraFlags = [
+        "--n-gpu-layers" "999"   # offload all layers to VRAM (RTX 2080 Ti)
+        "--ctx-size"     "8192"
+        "--parallel"     "4"
+      ];
+    };
+
     # ─── Docker ─────────────────────────────────────────────────────────────────
     virtualisation.docker = {
       enable           = true;
