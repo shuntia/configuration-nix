@@ -19,7 +19,9 @@ let
   # client_id in /persist/secrets/mas-client-secret and in the MAS clients
   # section below. ULIDs use Crockford base32; this one is a fixed sentinel.
   masClientId = "01JWMAS000000000000000001";
-  masConfig   = pkgs.writeText "mas-config.yaml" ''
+  # matrix.secret cannot use a _file reference, so this template has a
+  # placeholder substituted at runtime by the preflight script.
+  masConfigTemplate = pkgs.writeText "mas-config-template.yaml" ''
     http:
       public_base: "https://${authDomain}/"
       issuer: "https://${authDomain}/"
@@ -47,6 +49,11 @@ let
 
     database:
       uri: "postgresql:///mas?host=/var/run/postgresql"
+
+    matrix:
+      homeserver: "${cfDomain}"
+      secret: "@MAS_HOMESERVER_SECRET@"
+      endpoint: "http://127.0.0.1:6167"
 
     secrets:
       encryption_file: /persist/secrets/mas-encryption-key
@@ -451,12 +458,15 @@ $snap
     #   openssl rand -hex 32 > /persist/secrets/mas-encryption-key
     #   openssl genrsa -out /persist/secrets/mas-private-key.pem 2048
     #   openssl rand -base64 48 | tr -d '\n' > /persist/secrets/mas-client-secret
+    #   openssl rand -hex 32 > /persist/secrets/mas-homeserver-secret
     #   chown mas:mas /persist/secrets/mas-encryption-key \
     #                 /persist/secrets/mas-private-key.pem \
-    #                 /persist/secrets/mas-client-secret
+    #                 /persist/secrets/mas-client-secret \
+    #                 /persist/secrets/mas-homeserver-secret
     #   chmod 400     /persist/secrets/mas-encryption-key \
     #                 /persist/secrets/mas-private-key.pem \
-    #                 /persist/secrets/mas-client-secret
+    #                 /persist/secrets/mas-client-secret \
+    #                 /persist/secrets/mas-homeserver-secret
     users.users.mas = { isSystemUser = true; group = "mas"; };
     users.groups.mas = {};
 
@@ -472,20 +482,26 @@ $snap
         Group = "mas";
         StateDirectory     = "mas";
         StateDirectoryMode = "0700";
+        RuntimeDirectory     = "mas";
+        RuntimeDirectoryMode = "0700";
         ExecStartPre = let
           preflight = pkgs.writeShellScript "mas-preflight" ''
             for f in /persist/secrets/mas-encryption-key \
                      /persist/secrets/mas-private-key.pem \
-                     /persist/secrets/mas-client-secret; do
+                     /persist/secrets/mas-client-secret \
+                     /persist/secrets/mas-homeserver-secret; do
               if [[ ! -f "$f" ]]; then
                 echo "MAS secret missing: $f" >&2
                 exit 1
               fi
             done
-            ${masPackage}/bin/mas-cli --config ${masConfig} database migrate
+            secret=$(cat /persist/secrets/mas-homeserver-secret)
+            sed "s/@MAS_HOMESERVER_SECRET@/$secret/g" \
+              ${masConfigTemplate} > /run/mas/config.yaml
+            ${masPackage}/bin/mas-cli --config /run/mas/config.yaml database migrate
           '';
         in [ preflight ];
-        ExecStart  = "${masPackage}/bin/mas-cli --config ${masConfig} server";
+        ExecStart  = "${masPackage}/bin/mas-cli --config /run/mas/config.yaml server";
         Restart    = "on-failure";
         RestartSec = 10;
       };
