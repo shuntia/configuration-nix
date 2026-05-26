@@ -39,7 +39,7 @@ in
         address      = cfg.vmAddress;
         prefixLength = cfg.prefixLength;
       }];
-      networking.defaultGateway = cfg.hostAddress;
+      networking.defaultGateway = { address = cfg.hostAddress; interface = "eth0"; };
       networking.nameservers    = [ cfg.egress.dnsResolver ];
 
       # Open only the ports Hermes actually uses; the host firewall controls
