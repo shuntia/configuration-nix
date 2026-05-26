@@ -919,11 +919,18 @@ $snap
     security.auditd.enable = true;
     security.audit.enable  = true;
     security.audit.rules   = [
-      "-a exit,always -F arch=b64 -S execve"          # log all process execution
-      "-w /etc/passwd  -p wa -k identity"              # watch passwd writes
+      # Auth/identity file modifications
+      "-w /etc/passwd  -p wa -k identity"
       "-w /etc/shadow  -p wa -k identity"
       "-w /etc/sudoers -p wa -k sudoers"
-      "-w /var/log     -p wa -k logs"
+      "-w /etc/sudoers.d -p wa -k sudoers"
+      # SSH config tampering
+      "-w /etc/ssh/sshd_config -p wa -k sshd-config"
+      # Privilege escalation: only execve by root (not every process)
+      "-a exit,always -F arch=b64 -S execve -F euid=0 -k root-commands"
+      # Setuid/setgid bit changes
+      "-a exit,always -F arch=b64 -S chmod,fchmod,fchmodat -F a1=04000 -k setuid"
+      "-a exit,always -F arch=b64 -S chmod,fchmod,fchmodat -F a1=02000 -k setgid"
     ];
 
     # ClamAV antivirus daemon + signature auto-updater
