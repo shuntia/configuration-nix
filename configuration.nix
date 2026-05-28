@@ -346,7 +346,7 @@ $snap
     # Drop --model so the server starts in model-free mode and binds the port
     # immediately. All perf flags are set here for when a model is later loaded.
     systemd.services.llama-cpp.serviceConfig.ExecStart = lib.mkForce
-      "${llamaPkg}/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers -1 --flash-attn --cache-type-k q8_0 --cache-type-v q8_0 --ubatch-size 1024 --defrag-thold 0.1 --parallel 4";
+      "${llamaPkg}/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers -1 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --ubatch-size 1024 --defrag-thold 0.1 --parallel 4";
 
     # ─── Docker ─────────────────────────────────────────────────────────────────
     virtualisation.docker = {
