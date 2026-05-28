@@ -348,15 +348,10 @@ $snap
         "${llamaPkg}/bin/llama-server"
         + " --host 0.0.0.0 --port 8080"
         + " --models-dir /var/lib/llama"
-        + " --models-preset /home/${user}/.config/llama-cpp/llama-server.ini"
         + " --n-gpu-layers all --flash-attn on"
         + " --cache-type-k q8_0 --cache-type-v q8_0"
         + " --ubatch-size 1024 --parallel 1"
       );
-      # Run as the main user so it can read the home-manager preset file
-      # and write to /var/lib/llama.
-      User  = lib.mkForce user;
-      Group = lib.mkForce "users";
     };
 
     # ─── Docker ─────────────────────────────────────────────────────────────────
