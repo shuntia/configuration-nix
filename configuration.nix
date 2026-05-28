@@ -15,6 +15,7 @@ let
   masPort     = 8082;
   masPackage  = pkgsUnstable.matrix-authentication-service;
   llamaPkg    = (pkgs.llama-cpp.override { cudaSupport = true; }).overrideAttrs (old: {
+    NIX_ENFORCE_NO_NATIVE = "0";
     cmakeFlags = (old.cmakeFlags or []) ++ [
       "-DGGML_CUDA_FA_ALL_QUANTS=ON"  # flash-attn with all KV quant combos (q8_0 KV cache)
       "-DGGML_NATIVE=ON"              # compile CPU kernels for host arch (AVX2)
