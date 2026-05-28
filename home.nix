@@ -15,7 +15,7 @@
   # RTX 2080 Ti (Turing, CC 7.5, 11GB VRAM). Flash-attn on for q8_0 KV cache.
   # GGML_CUDA_FA_ALL_QUANTS=ON (compiled in llama-cpp override) enables
   # aggressive cache quants on Turing if needed later.
-  # Models live in /var/lib/llama/models.
+  # Models live in /var/lib/llama (bind-mounted from /persist/var/lib/llama).
   xdg.configFile."llama-cpp/llama-server.ini".text = ''
     version = 1
 
@@ -42,7 +42,7 @@
     ; ~5GB weights @ Q4_K_M + ~3.8GB KV cache @ q8_0 64k ctx = ~8.8GB
     ; ============================================================
     [qwen3-8b]
-    model = /var/lib/llama/models/Qwen3-8B-Q4_K_M.gguf
+    model = /var/lib/llama/Qwen3-8B-Q4_K_M.gguf
     alias = qwen3-8b
     ctx-size = 65536
     temp = 0.7
@@ -54,7 +54,7 @@
     ; Same model, thinking mode tuning (Qwen3 model card recommends
     ; different sampling when /think is active).
     [qwen3-8b-think]
-    model = /var/lib/llama/models/Qwen3-8B-Q4_K_M.gguf
+    model = /var/lib/llama/Qwen3-8B-Q4_K_M.gguf
     alias = qwen3-8b-think
     ctx-size = 65536
     temp = 0.6
@@ -68,7 +68,7 @@
     ; q4_0 KV (vs global q8_0) frees ~0.7GB to double ctx to 32k.
     ; ============================================================
     [qwen3-14b]
-    model = /var/lib/llama/models/Qwen3-14B-Q4_K_M.gguf
+    model = /var/lib/llama/Qwen3-14B-Q4_K_M.gguf
     alias = qwen3-14b
     ctx-size = 32768
     cache-type-k = q4_0
@@ -85,7 +85,7 @@
     ; Use --override-tensor regex to push MoE FFN layers to CPU.
     ; ============================================================
     [qwen3-coder-30b]
-    model = /var/lib/llama/models/Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+    model = /var/lib/llama/Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
     alias = qwen3-coder
     ctx-size = 32768
     override-tensor = .ffn_.*_exps.=CPU
@@ -483,7 +483,7 @@
     fish_add_path /home/shuntia/.cargo/bin
 
     # ─── llama.cpp environment ─────────────────────────────────────────
-    set -gx LLAMA_MODELS_DIR /var/lib/llama/models
+    set -gx LLAMA_MODELS_DIR /var/lib/llama
     set -gx LLAMA_CONFIG     $HOME/.config/llama-cpp/llama-server.ini
     set -gx LLAMA_API_BASE   http://127.0.0.1:8080/v1
 
