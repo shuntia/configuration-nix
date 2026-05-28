@@ -440,9 +440,7 @@
         end
         set -l preset $argv[1]
         set -e argv[1]
-        systemctl stop llama-cpp 2>/dev/null
-        llama-server --config $LLAMA_CONFIG --preset $preset $argv
-        systemctl start llama-cpp 2>/dev/null
+        llama-server --config $LLAMA_CONFIG --preset $preset --port 8081 $argv
       '';
     };
 

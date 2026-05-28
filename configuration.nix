@@ -332,9 +332,9 @@ $snap
     };
 
     # ─── llama.cpp server (OpenAI-compatible, GPU-accelerated) ─────────────────
-    # Starts without a model (server-only mode). Load models interactively
-    # with the `llm` shell function, which stops/restarts this service around
-    # each session. Reachable by the Hermes VM at http://10.200.100.1:8080/v1
+    # Runs in router mode: discovers GGUFs in /var/lib/llama and loads them
+    # on demand using presets from the user's llama-server.ini.
+    # Reachable by the Hermes VM at http://10.200.100.1:8080/v1
     services.llama-cpp = {
       enable  = true;
       host    = "0.0.0.0";
@@ -343,10 +343,21 @@ $snap
       package = llamaPkg;
       extraFlags = [];
     };
-    # Drop --model so the server starts in model-free mode and binds the port
-    # immediately. All perf flags are set here for when a model is later loaded.
-    systemd.services.llama-cpp.serviceConfig.ExecStart = lib.mkForce
-      "${llamaPkg}/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers -1 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --ubatch-size 1024 --defrag-thold 0.1 --parallel 4";
+    systemd.services.llama-cpp.serviceConfig = {
+      ExecStart = lib.mkForce (
+        "${llamaPkg}/bin/llama-server"
+        + " --host 0.0.0.0 --port 8080"
+        + " --models-dir /var/lib/llama"
+        + " --models-preset /home/${user}/.config/llama-cpp/llama-server.ini"
+        + " --n-gpu-layers all --flash-attn on"
+        + " --cache-type-k q8_0 --cache-type-v q8_0"
+        + " --ubatch-size 1024 --parallel 1"
+      );
+      # Run as the main user so it can read the home-manager preset file
+      # and write to /var/lib/llama.
+      User  = lib.mkForce user;
+      Group = lib.mkForce "users";
+    };
 
     # ─── Docker ─────────────────────────────────────────────────────────────────
     virtualisation.docker = {
@@ -430,8 +441,7 @@ $snap
           return polkit.Result.YES;
         }
       });
-      // Allow wheel users to stop/start the llama-cpp service without password
-      // so the `llm` shell function can swap it out for interactive sessions.
+      // Allow wheel users to stop/start the llama-cpp service without password.
       polkit.addRule(function(action, subject) {
         if (subject.isInGroup("wheel") &&
             action.id === "org.freedesktop.systemd1.manage-units" &&
