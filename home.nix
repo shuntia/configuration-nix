@@ -13,8 +13,9 @@
 
   # ─── llama-server preset config ─────────────────────────────────────────────
   # RTX 2080 Ti (Turing, CC 7.5, 11GB VRAM). Flash-attn on for q8_0 KV cache.
-  # GGML_CUDA_FA_ALL_QUANTS=ON (compiled in llama-cpp override) enables
-  # aggressive cache quants on Turing if needed later.
+  # GGML_CUDA_FA_ALL_QUANTS=ON + GGML_NATIVE=ON compiled into the override.
+  # exps=CPU override in both presets and service ExecStart keeps MoE expert
+  # weights in system RAM; no-op for dense models (no exps tensors).
   # Models live in /var/lib/llama (bind-mounted from /persist/var/lib/llama).
   xdg.configFile."llama-cpp/llama-server.ini".text = ''
     version = 1
@@ -599,7 +600,10 @@
     # ── AI / ML ───────────────────────────────────────────────────────────────
     # llama-cpp with CUDA + full flash-attention quant support (Turing/RTX 2080 Ti)
     ((llama-cpp.override { cudaSupport = true; }).overrideAttrs (old: {
-      cmakeFlags = (old.cmakeFlags or []) ++ [ "-DGGML_CUDA_FA_ALL_QUANTS=ON" ];
+      cmakeFlags = (old.cmakeFlags or []) ++ [
+        "-DGGML_CUDA_FA_ALL_QUANTS=ON"  # flash-attn with all KV quant combos
+        "-DGGML_NATIVE=ON"              # native AVX2 CPU kernels
+      ];
     }))
     lmstudio
     ollama-cuda

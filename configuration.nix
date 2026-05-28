@@ -14,7 +14,12 @@ let
   authDomain  = "auth.${cfDomain}";
   masPort     = 8082;
   masPackage  = pkgsUnstable.matrix-authentication-service;
-  llamaPkg    = pkgs.llama-cpp.override { cudaSupport = true; };
+  llamaPkg    = (pkgs.llama-cpp.override { cudaSupport = true; }).overrideAttrs (old: {
+    cmakeFlags = (old.cmakeFlags or []) ++ [
+      "-DGGML_CUDA_FA_ALL_QUANTS=ON"  # flash-attn with all KV quant combos (q8_0 KV cache)
+      "-DGGML_NATIVE=ON"              # compile CPU kernels for host arch (AVX2)
+    ];
+  });
   masShareDir = "${masPackage}/share/matrix-authentication-service";
   # ULID registered as the Tuwunel OAuth client in MAS. Must match the
   # client_id in /persist/secrets/mas-client-secret and in the MAS clients
@@ -351,6 +356,7 @@ $snap
         + " --n-gpu-layers all --flash-attn on"
         + " --cache-type-k q8_0 --cache-type-v q8_0"
         + " --ubatch-size 1024 --parallel 1"
+        + " --override-tensor exps=CPU"
       );
     };
 
