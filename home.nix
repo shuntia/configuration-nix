@@ -25,24 +25,26 @@
     [global]
     host = 127.0.0.1
     port = 8080
-    n-gpu-layers = 99
+    n-gpu-layers = -1
     flash-attn = on
     cache-type-k = q8_0
     cache-type-v = q8_0
     jinja = true
     threads = -1
     mlock = true
+    ubatch-size = 1024
+    defrag-thold = 0.1
     ; --no-webui if you don't want the built-in chat UI on :8080
     ; no-webui = true
 
     ; ============================================================
     ; Qwen3 8B — daily driver. Tool calling + long context.
-    ; ~5GB weights @ Q4_K_M + ~3-4GB KV cache @ 32k ctx q8_0
+    ; ~5GB weights @ Q4_K_M + ~3.8GB KV cache @ q8_0 64k ctx = ~8.8GB
     ; ============================================================
     [qwen3-8b]
     model = /var/lib/llama/models/Qwen3-8B-Q4_K_M.gguf
     alias = qwen3-8b
-    ctx-size = 32768
+    ctx-size = 65536
     temp = 0.7
     top-p = 0.8
     top-k = 20
@@ -54,20 +56,23 @@
     [qwen3-8b-think]
     model = /var/lib/llama/models/Qwen3-8B-Q4_K_M.gguf
     alias = qwen3-8b-think
-    ctx-size = 32768
+    ctx-size = 65536
     temp = 0.6
     top-p = 0.95
     top-k = 20
     min-p = 0.0
 
     ; ============================================================
-    ; Qwen3 14B — better quality, tighter context budget.
-    ; ~9GB weights leaves ~2-3GB for cache → ~16k usable ctx.
+    ; Qwen3 14B — better quality.
+    ; ~9GB weights + ~1.3GB KV cache @ q4_0 32k ctx = ~10.3GB
+    ; q4_0 KV (vs global q8_0) frees ~0.7GB to double ctx to 32k.
     ; ============================================================
     [qwen3-14b]
     model = /var/lib/llama/models/Qwen3-14B-Q4_K_M.gguf
     alias = qwen3-14b
-    ctx-size = 16384
+    ctx-size = 32768
+    cache-type-k = q4_0
+    cache-type-v = q4_0
     temp = 0.7
     top-p = 0.8
     top-k = 20
@@ -435,7 +440,9 @@
         end
         set -l preset $argv[1]
         set -e argv[1]
+        systemctl stop llama-cpp 2>/dev/null
         llama-server --config $LLAMA_CONFIG --preset $preset $argv
+        systemctl start llama-cpp 2>/dev/null
       '';
     };
 
@@ -482,7 +489,7 @@
 
     # llama.cpp also reads env vars in the LLAMA_ARG_* namespace; these
     # are ignored when --config is used but useful for one-off llama-cli.
-    set -gx LLAMA_ARG_N_GPU_LAYERS 99
+    set -gx LLAMA_ARG_N_GPU_LAYERS -1
     set -gx LLAMA_ARG_FLASH_ATTN   on
   '';
 

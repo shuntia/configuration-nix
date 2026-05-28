@@ -14,6 +14,7 @@ let
   authDomain  = "auth.${cfDomain}";
   masPort     = 8082;
   masPackage  = pkgsUnstable.matrix-authentication-service;
+  llamaPkg    = pkgs.llama-cpp.override { cudaSupport = true; };
   masShareDir = "${masPackage}/share/matrix-authentication-service";
   # ULID registered as the Tuwunel OAuth client in MAS. Must match the
   # client_id in /persist/secrets/mas-client-secret and in the MAS clients
@@ -331,20 +332,21 @@ $snap
     };
 
     # ─── llama.cpp server (OpenAI-compatible, GPU-accelerated) ─────────────────
-    # Model file: /var/lib/llama/model.gguf  (persisted; place any GGUF there)
-    # Reachable by the Hermes VM at http://10.200.100.1:8080/v1
+    # Starts without a model (server-only mode). Load models interactively
+    # with the `llm` shell function, which stops/restarts this service around
+    # each session. Reachable by the Hermes VM at http://10.200.100.1:8080/v1
     services.llama-cpp = {
       enable  = true;
       host    = "0.0.0.0";
       port    = 8080;
-      model   = "/var/lib/llama/model.gguf";
-      package = pkgs.llama-cpp.override { cudaSupport = true; };
-      extraFlags = [
-        "--n-gpu-layers" "999"   # offload all layers to VRAM (RTX 2080 Ti)
-        "--ctx-size"     "8192"
-        "--parallel"     "4"
-      ];
+      model   = "/dev/null";  # placeholder; ExecStart override below drops --model
+      package = llamaPkg;
+      extraFlags = [];
     };
+    # Drop --model so the server starts in model-free mode and binds the port
+    # immediately. All perf flags are set here for when a model is later loaded.
+    systemd.services.llama-cpp.serviceConfig.ExecStart = lib.mkForce
+      "${llamaPkg}/bin/llama-server --host 0.0.0.0 --port 8080 --n-gpu-layers -1 --flash-attn --cache-type-k q8_0 --cache-type-v q8_0 --ubatch-size 1024 --defrag-thold 0.1 --parallel 4";
 
     # ─── Docker ─────────────────────────────────────────────────────────────────
     virtualisation.docker = {
@@ -425,6 +427,15 @@ $snap
           "org.freedesktop.login1.hibernate",
           "org.freedesktop.login1.hibernate-multiple-sessions",
         ].indexOf(action.id) >= 0) {
+          return polkit.Result.YES;
+        }
+      });
+      // Allow wheel users to stop/start the llama-cpp service without password
+      // so the `llm` shell function can swap it out for interactive sessions.
+      polkit.addRule(function(action, subject) {
+        if (subject.isInGroup("wheel") &&
+            action.id === "org.freedesktop.systemd1.manage-units" &&
+            action.lookup("unit") === "llama-cpp.service") {
           return polkit.Result.YES;
         }
       });
