@@ -601,6 +601,7 @@
     # llama-cpp with CUDA + full flash-attention quant support (Turing/RTX 2080 Ti)
     ((llama-cpp.override { cudaSupport = true; }).overrideAttrs (old: {
       NIX_ENFORCE_NO_NATIVE = "0";
+      NIX_BUILD_CORES = "4";
       cmakeFlags = (old.cmakeFlags or []) ++ [
         "-DGGML_CUDA_FA_ALL_QUANTS=ON"  # flash-attn with all KV quant combos
         "-DGGML_NATIVE=ON"              # native AVX2 CPU kernels

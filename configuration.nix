@@ -16,6 +16,9 @@ let
   masPackage  = pkgsUnstable.matrix-authentication-service;
   llamaPkg    = (pkgs.llama-cpp.override { cudaSupport = true; }).overrideAttrs (old: {
     NIX_ENFORCE_NO_NATIVE = "0";
+    # FA_ALL_QUANTS expands to ~500 CUDA template instances; cap parallelism to
+    # avoid cicc OOM-segfaults (same root cause as the cudaCapabilities restriction).
+    NIX_BUILD_CORES = "4";
     cmakeFlags = (old.cmakeFlags or []) ++ [
       "-DGGML_CUDA_FA_ALL_QUANTS=ON"  # flash-attn with all KV quant combos (q8_0 KV cache)
       "-DGGML_NATIVE=ON"              # compile CPU kernels for host arch (AVX2)
@@ -74,6 +77,33 @@ let
         redirect_uris:
           - "https://${cfDomain}/_matrix/client/unstable/login/sso/callback/${masClientId}"
   '';
+
+  webSearchMcpPort = 3001;
+
+  webSearchMcpPkg = pkgs.buildNpmPackage {
+    pname = "web-search-mcp";
+    version = "0.3.2";
+    src = pkgs.fetchFromGitHub {
+      owner = "mrkrsl";
+      repo  = "web-search-mcp";
+      rev   = "v0.3.2";
+      hash  = lib.fakeHash;
+    };
+    npmDepsHash = lib.fakeHash;
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+  };
+
+  supergateWayPkg = pkgs.buildNpmPackage {
+    pname = "supergateway";
+    version = "3.4.3";
+    src = pkgs.fetchFromGitHub {
+      owner = "supercorp-ai";
+      repo  = "supergateway";
+      rev   = "v3.4.3";
+      hash  = lib.fakeHash;
+    };
+    npmDepsHash = lib.fakeHash;
+  };
 
   pkgsUnstable = import inputs.nixpkgs-unstable {
     system = pkgs.system;
@@ -349,6 +379,10 @@ $snap
       package = llamaPkg;
       extraFlags = [];
     };
+    systemd.services.llama-cpp = {
+      after = [ "web-search-mcp.service" ];
+      wants = [ "web-search-mcp.service" ];
+    };
     systemd.services.llama-cpp.serviceConfig = {
       ExecStart = lib.mkForce (
         "${llamaPkg}/bin/llama-server"
@@ -358,7 +392,31 @@ $snap
         + " --cache-type-k q8_0 --cache-type-v q8_0"
         + " --ubatch-size 1024 --parallel 1"
         + " --override-tensor exps=CPU"
+        + " --ui-mcp-proxy"
       );
+    };
+
+    # ─── Web Search MCP (SSE bridge for llama.cpp Web UI) ─────────────────────
+    # Wraps the stdio web-search-mcp server with supergateway, exposing SSE at
+    # http://127.0.0.1:3001/sse so the llama-server Web UI can load it as a tool.
+    # In the Web UI: Settings → MCP → add http://localhost:8080/mcp-proxy?url=http://localhost:3001/sse
+    systemd.services.web-search-mcp = {
+      description = "Web Search MCP server (SSE bridge for llama.cpp)";
+      after       = [ "network.target" ];
+      wantedBy    = [ "multi-user.target" ];
+      environment = {
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+        MAX_BROWSERS                     = "0";
+      };
+      serviceConfig = {
+        Type        = "simple";
+        ExecStart   = "${supergateWayPkg}/bin/supergateway"
+          + " --stdio ${webSearchMcpPkg}/bin/web-search-mcp"
+          + " --port ${toString webSearchMcpPort}";
+        Restart     = "on-failure";
+        RestartSec  = 5;
+        DynamicUser = true;
+      };
     };
 
     # ─── Docker ─────────────────────────────────────────────────────────────────
