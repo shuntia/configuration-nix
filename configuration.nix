@@ -406,7 +406,7 @@ $snap
       wantedBy    = [ "multi-user.target" ];
       environment = {
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
-        MAX_BROWSERS                     = "0";
+        PLAYWRIGHT_BROWSERS_PATH         = "${pkgs.playwright-driver.browsers}";
       };
       serviceConfig = {
         Type        = "simple";
