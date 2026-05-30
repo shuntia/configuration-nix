@@ -522,6 +522,7 @@
     mpv
     vlc
     imv
+    nsxiv
     zathura
     spotify
     termusic
@@ -744,6 +745,83 @@
       ExecStart  = "${pkgs.hyprland}/bin/Hyprland -c ${config.xdg.configHome}/hypr/remote.conf";
       Restart    = "on-failure";
       RestartSec = "3s";
+    };
+  };
+
+
+  # ─── XDG MIME default applications ───────────────────────────────────────────────────────────────────────
+  xdg.mimeApps = {
+    enable = true;
+    defaultApplications = {
+      # Web
+      "text/html"              = "zen.desktop";
+      "x-scheme-handler/http"  = "zen.desktop";
+      "x-scheme-handler/https" = "zen.desktop";
+      "x-scheme-handler/ftp"   = "zen.desktop";
+
+      # Video
+      "video/mp4"         = "mpv.desktop";
+      "video/x-matroska"  = "mpv.desktop";
+      "video/webm"        = "mpv.desktop";
+      "video/avi"         = "mpv.desktop";
+      "video/x-msvideo"   = "mpv.desktop";
+      "video/mpeg"        = "mpv.desktop";
+      "video/quicktime"   = "mpv.desktop";
+      "video/ogg"         = "mpv.desktop";
+
+      # Audio
+      "audio/mpeg"        = "mpv.desktop";
+      "audio/mp4"         = "mpv.desktop";
+      "audio/ogg"         = "mpv.desktop";
+      "audio/flac"        = "mpv.desktop";
+      "audio/x-flac"      = "mpv.desktop";
+      "audio/wav"         = "mpv.desktop";
+      "audio/x-wav"       = "mpv.desktop";
+      "audio/aac"         = "mpv.desktop";
+
+      # Images
+      "image/jpeg"        = "nsxiv.desktop";
+      "image/png"         = "nsxiv.desktop";
+      "image/gif"         = "nsxiv.desktop";
+      "image/webp"        = "nsxiv.desktop";
+      "image/bmp"         = "nsxiv.desktop";
+      "image/tiff"        = "nsxiv.desktop";
+      "image/svg+xml"     = "nsxiv.desktop";
+      "image/x-xcf"       = "nsxiv.desktop";
+
+      # PDF
+      "application/pdf"   = "org.pwmt.zathura.desktop";
+
+      # Text
+      "text/plain"        = "nvim.desktop";
+
+      # Archives
+      "application/zip"              = "org.gnome.FileRoller.desktop";
+      "application/x-tar"            = "org.gnome.FileRoller.desktop";
+      "application/x-bzip2"          = "org.gnome.FileRoller.desktop";
+      "application/gzip"             = "org.gnome.FileRoller.desktop";
+      "application/x-7z-compressed"  = "org.gnome.FileRoller.desktop";
+      "application/x-rar"            = "org.gnome.FileRoller.desktop";
+      "application/x-xz"             = "org.gnome.FileRoller.desktop";
+      "application/zstd"             = "org.gnome.FileRoller.desktop";
+
+      # Office documents
+      "application/vnd.oasis.opendocument.text"          = "libreoffice-writer.desktop";
+      "application/vnd.oasis.opendocument.spreadsheet"   = "libreoffice-calc.desktop";
+      "application/vnd.oasis.opendocument.presentation"  = "libreoffice-impress.desktop";
+      "application/msword"                               = "libreoffice-writer.desktop";
+      "application/vnd.ms-excel"                         = "libreoffice-calc.desktop";
+      "application/vnd.ms-powerpoint"                    = "libreoffice-impress.desktop";
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"   = "libreoffice-writer.desktop";
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"         = "libreoffice-calc.desktop";
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation" = "libreoffice-impress.desktop";
+
+      # Torrent
+      "application/x-bittorrent" = "org.qbittorrent.qBittorrent.desktop";
+      "x-scheme-handler/magnet"  = "org.qbittorrent.qBittorrent.desktop";
+
+      # File manager
+      "inode/directory" = "thunar.desktop";
     };
   };
 
