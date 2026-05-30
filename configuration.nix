@@ -465,6 +465,50 @@ $snap
     # ─── Display manager ────────────────────────────────────────────────────────
     services.displayManager.ly.enable = true;
 
+    # ─── nix-ld (dynamic linker shim for downloaded binaries) ───────────────────
+    # Provides /lib64/ld-linux-x86-64.so.2 + a curated lib set so binaries that
+    # weren't built against nixpkgs (Playwright's downloaded Chromium/Firefox,
+    # vscode extensions, etc.) can resolve their deps. Set covers Playwright's
+    # full Chromium runtime needs (broader than the ldd missing-libs panel).
+    programs.nix-ld = {
+      enable = true;
+      libraries = with pkgs; [
+        stdenv.cc.cc.lib
+        glibc
+        nss
+        nspr
+        cups.lib
+        expat
+        dbus
+        glib
+        alsa-lib
+        at-spi2-atk
+        at-spi2-core
+        cairo
+        pango
+        atk
+        gdk-pixbuf
+        gtk3
+        freetype
+        fontconfig
+        libdrm
+        libxkbcommon
+        mesa
+        xorg.libX11
+        xorg.libxcb
+        xorg.libXcomposite
+        xorg.libXcursor
+        xorg.libXdamage
+        xorg.libXext
+        xorg.libXfixes
+        xorg.libXi
+        xorg.libXrandr
+        xorg.libXrender
+        xorg.libXtst
+        xorg.libxshmfence
+      ];
+    };
+
     # ─── Shell / Hyprland / Sway ────────────────────────────────────────────────
     programs.fish.enable = true;
     programs.hyprland.enable = true;
