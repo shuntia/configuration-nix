@@ -412,7 +412,9 @@ $snap
         Type        = "simple";
         ExecStart   = "${supergateWayPkg}/bin/supergateway"
           + " --stdio ${webSearchMcpPkg}/bin/web-search-mcp"
-          + " --port ${toString webSearchMcpPort}";
+          + " --port ${toString webSearchMcpPort}"
+          + " --outputTransport streamableHttp"
+          + " --stateful";
         Restart     = "on-failure";
         RestartSec  = 5;
         DynamicUser = true;
