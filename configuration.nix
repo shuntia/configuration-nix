@@ -106,7 +106,7 @@ let
   };
 
   pkgsUnstable = import inputs.nixpkgs-unstable {
-    system = pkgs.system;
+    system = pkgs.stdenv.hostPlatform.system;
     config = config.nixpkgs.config;
   };
   # Derived from fileSystems."/".device via systemd path-escaping rules:
@@ -494,18 +494,18 @@ $snap
         libdrm
         libxkbcommon
         mesa
-        xorg.libX11
-        xorg.libxcb
-        xorg.libXcomposite
-        xorg.libXcursor
-        xorg.libXdamage
-        xorg.libXext
-        xorg.libXfixes
-        xorg.libXi
-        xorg.libXrandr
-        xorg.libXrender
-        xorg.libXtst
-        xorg.libxshmfence
+        libx11
+        libxcb
+        libxcomposite
+        libxcursor
+        libxdamage
+        libxext
+        libxfixes
+        libxi
+        libxrandr
+        libxrender
+        libxtst
+        libxshmfence
       ];
     };
 
@@ -1101,7 +1101,7 @@ $snap
 
       # ── System monitoring / operations ─────────────────────────────────────────
       lsof iotop sysstat htop
-      config.boot.kernelPackages.perf  # perf(1)
+      perf  # perf(1)
       ltrace strace
 
       # ── Networking ─────────────────────────────────────────────────────────────

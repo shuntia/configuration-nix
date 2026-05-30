@@ -4,6 +4,9 @@
   home.username    = "shuntia";
   home.homeDirectory = "/home/shuntia";
   home.stateVersion  = "25.11";
+  # We knowingly run nixos-unstable + home-manager master; versions diverge
+  # between releases (e.g. nixpkgs 26.05 vs HM 26.11) and we accept that.
+  home.enableNixpkgsReleaseCheck = false;
 
   # ─── Illogical Impulse (end-4 dotfiles + QuickShell) ───────────────────────
   programs.illogical-impulse.enable = true;
@@ -121,6 +124,8 @@
     defaultEditor = true;
     viAlias       = true;
     vimAlias      = true;
+    withRuby      = false;
+    withPython3   = false;
 
     plugins = with pkgs.vimPlugins; [
       # theme + UI chrome
@@ -175,7 +180,7 @@
       zls                                    # Zig
     ];
 
-    extraLuaConfig = ''
+    initLua = ''
       vim.g.mapleader      = " "
       vim.g.maplocalleader = " "
 
