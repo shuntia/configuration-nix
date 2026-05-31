@@ -287,7 +287,7 @@ $snap
       # IPv6 prefix is ISP-assigned and may change; update if so.
       extraCommands =
         let
-          lanPorts  = [ 8188 11434 1234 8080 9000 ];
+          lanPorts  = [ 8188 11434 1234 8080 9000 7000 8888 ];
           ipv6Lan   = "2601:647:4101:a5c0::/64";
           v4Sources = [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" ];
           v6Sources = [ ipv6Lan "fe80::/10" ];
@@ -395,6 +395,11 @@ $snap
         + " --ui-mcp-proxy"
       );
     };
+
+    # ─── Hermes sandbox ─────────────────────────────────────────────────────────
+    # Point the Hermes agent VM at the local llama.cpp server.
+    services.hermes-sandbox.llm.baseUrl =
+      "http://${config.services.hermes-sandbox.hostAddress}:${toString config.services.llama-cpp.port}/v1";
 
     # ─── Web Search MCP (SSE bridge for llama.cpp Web UI) ─────────────────────
     # Wraps the stdio web-search-mcp server with supergateway, exposing SSE at
@@ -746,6 +751,40 @@ $snap
       BindPaths = [ "/persist/tuwunel:/var/lib/tuwunel" ];
     };
 
+    # ─── Odysseus (self-hosted AI assistant) ────────────────────────────────────
+    # Serves at http://<host>:7000 — LAN-accessible only.
+    # Environment file required at /persist/secrets/odysseus.env; must set:
+    #   LLM_HOST=127.0.0.1                              (local llama-cpp on :8080)
+    #   SEARXNG_INSTANCE=http://127.0.0.1:8888          (local SearXNG below)
+    #   ODYSSEUS_ADMIN_PASSWORD=<your-admin-password>
+    # See .env.example in the Odysseus repo for all available variables.
+    services.odysseus = {
+      enable          = true;
+      port            = 7000;
+      host            = "0.0.0.0";
+      environmentFile = "/persist/secrets/odysseus.env";
+    };
+
+    # ─── SearXNG (self-hosted metasearch engine) ────────────────────────────────
+    # Serves at http://<host>:8888 — LAN-accessible only.
+    # secret_key lives in the Nix store (world-readable); for a private LAN
+    # instance this is acceptable. Rotate with: openssl rand -hex 32
+    services.searx = {
+      enable = true;
+      settings = {
+        server = {
+          port          = 8888;
+          bind_address  = "0.0.0.0";
+          secret_key    = "changeme_openssl_rand_hex_32";
+        };
+        search.safe_search = 0;
+        ui = {
+          default_lang       = "en";
+          theme_args.simple_style = "dark";
+        };
+      };
+    };
+
     # ─── Draupnir (Matrix moderation bot) ─────────────────────────────────────
     services.draupnir = {
       enable = true;
@@ -1004,6 +1043,7 @@ $snap
         "/var/lib/libvirt"
         "/var/lib/llama"
         { directory = "/var/lib/draupnir"; user = "draupnir"; group = "draupnir"; mode = "0700"; }
+        { directory = "/var/lib/odysseus"; user = "odysseus"; group = "odysseus"; mode = "0750"; }
         "/var/lib/mas"
         { directory = "/var/lib/postgresql"; user = "postgres"; group = "postgres"; mode = "0700"; }
       ];

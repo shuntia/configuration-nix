@@ -28,9 +28,11 @@
       url = "github:microvm-nix/microvm.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    odysseus.url = "github:shuntia/odysseus";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, impermanence, illogical-flake, zen-browser, comfyui-nix, microvm, ... }@inputs: {
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, impermanence, illogical-flake, zen-browser, comfyui-nix, microvm, odysseus, ... }@inputs: {
     nixosConfigurations.shuntia-nix = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
@@ -43,6 +45,7 @@
         impermanence.nixosModules.impermanence
         microvm.nixosModules.host
         ./modules/hermes-sandbox-host.nix
+        odysseus.nixosModules.default
         ./modules/hermes-sandbox-vm.nix
         home-manager.nixosModules.home-manager
         {
